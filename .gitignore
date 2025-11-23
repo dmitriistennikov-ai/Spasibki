@@ -1,0 +1,23 @@
+# .gitignore для Python проектов
+
+# Файлы кэша Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PyCharm
+.idea/
+*.iml
+
+# Виртуальные окружения
+venv/
+env/
+.venv/
+
+# Логи и БД
+*.log
+*.sqlite3
+
+# Файлы окружения
+.env
+.env.local
