@@ -1,0 +1,943 @@
+:root {
+  --bg: #0b0d12;
+  --fg: #e9eef6;
+  --muted: #99a3b3;
+  --primary: #5c8dff;
+  --primary-600: #3f72ff;
+  --surface: #11141b;
+  --surface-2: #171b23;
+  --border: #1f2530;
+  color-scheme: dark light;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  background-color: rgb(28 25 23);
+  color: var(--fg);
+}
+
+/* --- helpers --- */
+.container { width: min(1280px, 100% - 16px); margin-inline: auto; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+.placeholder { color: var(--muted); }
+
+/* --- header + tabs --- */
+.header { border-bottom: 1px solid var(--border); background-color: rgb(28 25 23); position: sticky; top: 0; z-index: 10; }
+.header__inner { display: flex; gap: 16px; align-items: center; height: 56px; }
+.brand { font-weight: 600; font-size: 1.5rem; letter-spacing: .4px; margin-left: auto; }
+.brand::after { content: "💖"; display: inline-block; margin-left: .35em; font-size: .95em; transform: translateY(1px); }
+
+.tabs { display: flex; gap: 6px; }
+.tabs__button {
+  appearance: none; border: 1px solid var(--border); background: var(--surface-2); color: var(--fg);
+  padding: 6px 10px; border-radius: 8px; cursor: pointer; font-weight: 600;
+}
+.tabs__button:hover { border-color: var(--primary); }
+.tabs__button--active { background: color-mix(in oklab, var(--primary) 18%, var(--surface-2)); border-color: var(--primary); }
+
+/* --- main --- */
+.main { padding-block: 16px; }
+.tab-content { display: none; }
+.tab-content--active { display: block; }
+.user-info {
+    background-color: #292524;
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+                0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+.user-info__layout {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+}
+
+.user-info__profile {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+.user-info__avatar {
+    background: #44403c; /* bg-stone-700 */
+    border-radius: 50%;
+    width: 5rem;
+    height: 5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+}
+.user-info__icon {
+    font-size: 2.5rem; /* Размер иконки */
+    color: #d6d3d1; /* text-stone-300 */
+}
+.user-info__details {
+    color: white;
+}
+.user-info__name {
+  margin: 0;
+  font-size: 1.1rem;
+  line-height: 1.33;
+  font-weight: 700;
+}
+.user-info__position {
+  margin: 2px 0 0 0;
+  font-size: 1rem;
+  line-height: 1.4;
+  color: #a8a29e;
+  font-weight: 500;
+}
+.user-info__stats {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 84px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    width: auto;
+    margin-left: auto
+}
+.stat-card {
+    background: #44403c; /* bg-stone-700 */
+    border-radius: 0.6rem;
+    aspect-ratio: 1 / 1;
+    padding: .5rem;
+    width: 88px;
+    text-align: center;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    gap:.25rem;
+    aspect-ratio:1/1
+}
+.stat-card__label {
+    color: #a8a29e; /* text-stone-400 */
+    font-size: 0.875rem;
+    margin: 0;
+    line-height: 1.1;
+}
+
+.stat-card__value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin: 0;
+}
+
+.stat-card__value--thanks {
+    color: #818cf8; /* text-indigo-400 */
+}
+
+.stat-card__value--balance {
+    color: #fbbf24; /* text-amber-400 */
+}
+/* --- message bar (toasts-lite) --- */
+.message-bar {
+  position: fixed; left: 16px; bottom: 16px; padding: 10px 12px; border-radius: 10px; background: var(--surface);
+  border: 1px solid var(--border); color: var(--fg); opacity: 0; transform: translateY(8px); transition: .2s ease;
+}
+.message-bar.is-visible { opacity: 1; transform: translateY(0); }
+
+/* --- modal root --- */
+.modal[aria-hidden="true"] { display: none; }
+.modal { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; backdrop-filter: blur(2px); }
+.modal__overlay { position: absolute; inset: 0; background: rgba(0,0,0,.45); }
+.modal__dialog { position: relative; z-index: 1; width: min(640px, 100%); background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+.modal__header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.modal__title { margin: 0; font-size: 16px; }
+.modal__close { appearance: none; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); color: var(--fg); padding: 6px 10px; cursor: pointer; }
+.modal__content { padding: 14px; }
+.modal__footer { padding: 12px 14px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
+
+/* --- basic buttons --- */
+.btn { appearance: none; border: 1px solid var(--border); background: var(--surface-2); color: var(--fg); padding: 8px 12px; border-radius: 8px; cursor: pointer; }
+.btn:hover { border-color: var(--primary); }
+.btn--primary { border-color: var(--primary); background: color-mix(in oklab, var(--primary) 24%, var(--surface-2)); }
+#send-thanks-btn{display:flex;margin-inline:auto;align-items:center;justify-content:center;gap:.5rem;font-weight:700;font-size:1.0625rem;color:#fff;background:#4f46e5;padding:.9rem 1.75rem;border:0;border-radius:9999px;cursor:pointer;transition:background-color .2s ease,transform .12s ease,box-shadow .2s ease;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+#send-thanks-btn:hover{background:#4338ca}
+#send-thanks-btn:active{transform:translateY(1px)}
+#send-thanks-btn:focus-visible{outline:2px solid #a5b4fc;outline-offset:2px}
+#send-thanks-btn[disabled]{opacity:.6;cursor:not-allowed}
+#send-thanks-btn svg{width:20px;height:20px;margin-right:0;display:inline-block;line-height:0}
+
+#send-thanks-btn-in-game {
+  display: flex;
+  margin-left: auto;              /* прижимаем к правому краю */
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  font-weight: 700;
+  font-size: .9375rem;            /* чуть меньше, чем основная */
+  color: #fff;
+  background: #4f46e5;
+  padding: .6rem 1.4rem;          /* компактнее отступы */
+  border: 0;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: background-color .2s ease, transform .12s ease, box-shadow .2s ease;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+}
+
+#send-thanks-btn-in-game:hover {
+  background: #4338ca;
+}
+
+#send-thanks-btn-in-game:active {
+  transform: translateY(1px);
+}
+
+#send-thanks-btn-in-game:focus-visible {
+  outline: 2px solid #a5b4fc;
+  outline-offset: 2px;
+}
+
+#send-thanks-btn-in-game[disabled] {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+#send-thanks-btn-in-game svg {
+  width: 18px;                    /* иконка тоже чуть меньше */
+  height: 18px;
+  margin-right: 0;
+  display: inline-block;
+  line-height: 0;
+}
+
+/* ==== Thanks Modal: крупнее, читабельнее, аккуратные кнопки ==== */
+#thanks-modal .modal__dialog { width: min(720px, 100% - 32px); font-size: 16px; border-radius: 14px; }
+#thanks-modal .modal__header,
+#thanks-modal .modal__content,
+#thanks-modal .modal__footer { padding: 16px 18px; }
+#thanks-modal .modal__title { margin: 0; font-size: 20px; line-height: 1.3; font-weight: 800; }
+
+/* Поле выбора получателя — крупнее и удобнее */
+#thanks-modal label.form-label { display: inline-block; margin-bottom: 8px; font-weight: 600; }
+#thanks-modal select#thanks-to {
+  width: 100%; height: 44px; padding: 0 12px;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface-2); color: var(--fg); font-size: 16px;
+}
+#thanks-modal select#thanks-to:focus { outline: none; box-shadow: 0 0 0 2px color-mix(in oklab, var(--primary) 40%, transparent); border-color: var(--primary); }
+
+/* Кнопки в модалке — крупнее и приятнее нажимать */
+#thanks-modal .btn {
+  padding: 0.75rem 1.1rem; border-radius: 10px; font-weight: 700;
+  border: 1px solid var(--border); background: var(--surface-2); color: var(--fg);
+  transition: transform .12s ease, background-color .2s ease, border-color .2s ease;
+}
+#thanks-modal .btn:hover { border-color: var(--primary); }
+#thanks-modal .btn:active { transform: translateY(1px); }
+
+/* Основная (синяя) кнопка — в цветах проекта */
+#thanks-modal .btn.btn--primary {
+  border-color: var(--primary);
+  background: color-mix(in oklab, var(--primary) 24%, var(--surface-2));
+}
+#thanks-modal .btn.btn--primary:hover {
+  background: color-mix(in oklab, var(--primary) 32%, var(--surface-2));
+}
+#thanks-modal textarea#thanks-message {
+  width:100%; min-height:96px; padding:10px 12px;
+  border:1px solid var(--border); border-radius:10px;
+  background:var(--surface-2); color:var(--fg);
+  font:inherit; resize:vertical;
+}
+#thanks-modal textarea#thanks-message:focus {
+  outline:none;
+  box-shadow:0 0 0 2px color-mix(in oklab, var(--primary) 40%, transparent);
+  border-color:var(--primary);
+}
+
+.thanks-limit {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+
+#likes-history-block{ margin-top: 20px; }
+#finished-games-block { margin-top: 40px; }
+.table-wrap {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background-color: #292524;
+  overflow: auto;
+  margin-top: 8px; /* или 16px — как тебе визуально больше нравится */
+}
+.table{width:100%;border-collapse:collapse;min-width:640px}
+.table th,.table td{padding:10px 12px;border-top:1px solid var(--border);vertical-align:top}
+.table thead th{position:sticky;top:0;text-align:left;background-color: #292524;}
+.table__empty{color:var(--muted);text-align:center}
+.table-actions{display:flex;align-items:center;gap:8px;margin:8px 0}
+.table-actions__title{margin:0;margin-right:auto;font-size:16px;line-height:1.3;font-weight:800;opacity:.9}
+.table-wrap{margin-top:8px}
+.btn--tiny{padding:.35rem .6rem;font-size:.875rem;border-radius:8px}
+.btn.is-active{border-color:var(--primary);background:color-mix(in oklab,var(--primary) 22%, var(--surface-2))}
+
+.table-games.table-games--inline {
+    display: flex;
+    align-items: center;
+    gap: 12px;          /* небольшой отступ между элементами */
+}
+
+.table-games--inline {
+  display: flex;
+  align-items: baseline;
+}
+
+.table-games--inline .table-games__title {
+  margin-right: 8px;
+}
+
+.table-games__title {
+  margin: 0;
+  margin-right: auto; /* уже есть — как раз будет выталкивать ссылку вправо */
+  font-size: 16px;
+  line-height: 1.3;
+  font-weight: 800;
+  opacity: .9;
+}
+
+.table-games__link {
+  font-size: 26px;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.table-games__link:visited {
+  color: inherit;
+}
+
+.table-games__empty {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+
+.game-rating {
+  margin-top: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #292524;
+  border: 1px solid var(--border);
+}
+
+.game-rating__title {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 700;
+  opacity: 0.9;
+}
+
+.game-rating__body {
+  font-size: 13px;
+}
+
+.game-rating__header {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto auto;
+  column-gap: 10px;
+  padding-bottom: 4px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.game-rating__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.game-rating__item {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto auto;
+  column-gap: 10px;
+  align-items: center;
+  padding: 4px 0;
+  border-top: 1px solid rgba(255,255,255,0.04);
+}
+
+.game-rating__item:first-child {
+  border-top: none;
+}
+
+.game-rating__index {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.game-rating__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game-rating__badge {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  min-width: 2.2em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  background: color-mix(in oklab, var(--surface-2) 80%, var(--primary) 20%);
+}
+
+.game-rating__badge--received {
+  font-weight: 700;
+}
+
+.game-rating__badge--sent {
+  opacity: 0.9;
+}
+
+.game-rating__empty,
+.game-rating__loading,
+.game-rating__error {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* можно чуть подсветить топ-3 */
+.game-rating__item:nth-child(1) .game-rating__index,
+.game-rating__item:nth-child(2) .game-rating__index,
+.game-rating__item:nth-child(3) .game-rating__index {
+  color: var(--primary);
+}
+
+#game-modal .modal__dialog {
+  width: min(900px, 100% - 32px); /* было 640, стало примерно +40% */
+  border-radius: 14px;
+}
+/* Одинаковая сетка для заголовка и строк рейтинга */
+.game-rating__header,
+.game-rating__item {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 80px 80px; /* № | ФИО | получено | отправлено */
+  column-gap: 12px;
+  align-items: center;
+}
+
+/* Общий базовый стиль — если ещё не было */
+.game-rating__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.game-rating__header {
+  padding-bottom: 4px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--muted);
+}
+
+.game-rating__item {
+  padding: 4px 0;
+  border-top: 1px solid rgba(255,255,255,0.04);
+}
+.game-rating__item:first-child {
+  border-top: none;
+}
+
+/* Центруем числовые колонки по сетке */
+.game-rating__col--received,
+.game-rating__col--sent,
+.game-rating__badge {
+  justify-self: center;
+}
+
+.game-modal__row {
+  margin: 0 0 6px;
+}
+
+.game-modal__row--dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.game-modal__row--dates > p {
+  margin: 0;
+}
+
+/* Номер и бейджи — табличные цифры, чтобы всё ровно стояло */
+.game-rating__index,
+.game-rating__badge {
+  font-variant-numeric: tabular-nums;
+}
+
+
+@media (max-width: 480px) {
+  #thanks-modal .modal__dialog { width: min(100%, 100% - 16px); font-size: 15px; }
+  #thanks-modal select#thanks-to { height: 42px; font-size: 15px; }
+  #thanks-modal .btn { padding: 0.7rem 1rem; }
+}
+
+/* ===== Магазин: карточки товаров ===== */
+
+#shop-items-block {
+  margin-top: 24px;
+}
+
+.shop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); /* 2–3 карточки в ряд */
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.shop-empty {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #292524;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* Карточка товара */
+.shop-card {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #292524;
+  border: 1px solid var(--border);
+  min-height: 140px;
+}
+
+/* Левая часть — картинка, ~60% */
+.shop-card__media {
+  flex: 0 1 60%;              /* ВАЖНО: разрешаем сжиматься (shrink = 1) */
+  border-radius: 10px;
+  overflow: hidden;
+  background: #1f2933;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.shop-card__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Заглушка, если картинки нет */
+.shop-card__image-placeholder {
+  font-size: 2.5rem;
+  opacity: 0.9;
+}
+
+/* Правая часть — текст и кнопка, ~40% */
+.shop-card__info {
+  flex: 1 1 40%;              /* тоже может сжиматься */
+  min-width: 0;               /* чтобы текст не выталкивал блок за пределы */
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.shop-card__title {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.shop-card__description {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 13px;
+  word-wrap: break-word;
+}
+
+.shop-card__price,
+.shop-card__stock {
+  margin: 0;
+  font-size: 13px;
+}
+
+.shop-card__price {
+  font-weight: 700;
+  color: #fbbf24;
+}
+
+/* Кнопка "Купить" — внизу правой части */
+.shop-card__buy {
+  margin-top: auto;
+}
+
+/* чуть приглушить пока кнопка "заглушка" */
+.shop-card__buy[disabled] {
+  opacity: .7;
+  cursor: not-allowed;
+}
+
+/* Адаптив: на узких экранах картинка сверху, текст снизу */
+@media (max-width: 768px) {
+  .shop-card {
+    flex-direction: column;
+  }
+  .shop-card__media,
+  .shop-card__info {
+    flex: 0 0 auto;
+    width: 100%;
+  }
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ===== Настройки: лейаут и внутреннее меню ===== */
+
+.settings-layout {
+  margin-top: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+/* Левая колонка ~15% */
+.settings-sidebar {
+  flex: 0 0 15%;
+  max-width: 200px;
+}
+
+/* Правая колонка ~85% */
+.settings-content {
+  flex: 1 1 85%;
+  min-height: 240px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+/* Кнопки внутреннего меню */
+.settings-nav__button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--fg);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.settings-nav__button:last-child {
+  margin-bottom: 0;
+}
+
+.settings-nav__button:hover {
+  border-color: var(--primary);
+}
+
+.settings-nav__button--active {
+  border-color: var(--primary);
+  background: color-mix(in oklab, var(--primary) 20%, var(--surface-2));
+}
+
+/* Адаптив: на узких экранах меню и контент идут столбиком */
+@media (max-width: 768px) {
+  .settings-layout {
+    flex-direction: column;
+  }
+
+  .settings-sidebar {
+    flex: 0 0 auto;
+    max-width: none;
+    display: flex;
+    gap: 8px;
+  }
+
+  .settings-nav__button {
+    width: auto;
+    flex: 1 1 0;
+    text-align: center;
+  }
+}
+
+/* Кнопка-шестерёнка в списке игр настроек */
+.settings-games__actions {
+  text-align: right;
+}
+
+/* Ряд из двух полей в модалке редактирования игры */
+.game-edit__row {
+  display: flex;
+  gap: 12px;
+}
+
+.game-edit__row > div {
+  flex: 1 1 0;
+}
+
+/* ==== Модалки игры и магазина: редактирование + создание ==== */
+#game-edit-modal .modal__dialog,
+#game-create-modal .modal__dialog,
+#shop-item-create-modal .modal__dialog,
+#shop-item-edit-modal .modal__dialog,
+#employee-edit-modal .modal__dialog {
+  width: min(720px, 100% - 32px);
+  font-size: 16px;
+  border-radius: 14px;
+}
+
+#game-edit-modal .modal__header,
+#game-edit-modal .modal__content,
+#game-edit-modal .modal__footer,
+#game-create-modal .modal__header,
+#game-create-modal .modal__content,
+#game-create-modal .modal__footer,
+#shop-item-create-modal .modal__header,
+#shop-item-create-modal .modal__content,
+#shop-item-create-modal .modal__footer,
+#shop-item-edit-modal .modal__header,
+#shop-item-edit-modal .modal__content,
+#shop-item-edit-modal .modal__footer,
+#employee-edit-modal .modal__header,
+#employee-edit-modal .modal__content,
+#employee-edit-modal .modal__footer {
+  padding: 16px 18px;
+}
+
+#game-edit-modal .modal__content,
+#game-create-modal .modal__content {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+/* Подписи к полям */
+#game-edit-modal label.form-label,
+#game-create-modal label.form-label,
+#shop-item-create-modal label.form-label,
+#shop-item-edit-modal label.form-label,
+#employee-edit-modal label.form-label {
+  display: inline-block;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+/* Инпуты / селекты / textarea */
+#game-edit-modal input[type="text"],
+#game-edit-modal input[type="date"],
+#game-edit-modal input[type="number"],
+#game-edit-modal select,
+#game-edit-modal textarea,
+#game-create-modal input[type="text"],
+#game-create-modal input[type="date"],
+#game-create-modal input[type="number"],
+#game-create-modal select,
+#game-create-modal textarea,
+#shop-item-create-modal input[type="text"],
+#shop-item-create-modal input[type="number"],
+#shop-item-create-modal textarea,
+#shop-item-edit-modal input[type="text"],
+#shop-item-edit-modal input[type="number"],
+#shop-item-edit-modal textarea,
+#employee-edit-modal input[type="text"],
+#employee-edit-modal input[type="number"],
+#employee-edit-modal input[type="email"] {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--fg);
+  font: inherit;
+}
+
+/* Ряды из двух колонок (дата, лимиты) */
+#game-edit-modal .game-edit__row,
+#game-create-modal .game-edit__row,
+#shop-item-create-modal .game-edit__row,
+#shop-item-edit-modal .game-edit__row {
+  display: flex;
+  gap: 16px;
+}
+
+#game-edit-modal .game-edit__row > div,
+#game-create-modal .game-edit__row > div,
+#shop-item-create-modal .game-edit__row > div,
+#shop-item-edit-modal .game-edit__row > div {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Чекбокс "Игра активна" */
+#game-edit-modal .form-checkbox,
+#game-create-modal .form-checkbox,
+#shop-item-create-modal .form-checkbox,
+#shop-item-edit-modal .form-checkbox,
+#employee-edit-modal .form-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+#game-edit-modal .form-checkbox input[type="checkbox"],
+#game-create-modal .form-checkbox input[type="checkbox"],
+#shop-item-create-modal .form-checkbox input[type="checkbox"],
+#shop-item-edit-modal .form-checkbox input[type="checkbox"],
+#employee-edit-modal .form-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+}
+
+
+#game-edit-modal .modal__footer,
+#game-create-modal .modal__footer,
+#shop-item-create-modal .modal__footer,
+#shop-item-edit-modal .modal__footer,
+#employee-edit-modal .modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  margin-top: 8px;
+}
+
+/* Общий стиль кнопок */
+#game-edit-modal .btn,
+#game-create-modal .btn,
+#shop-item-create-modal .btn,
+#shop-item-edit-modal .btn,
+#employee-edit-modal .btn {
+  padding: 0.75rem 1.1rem;
+  border-radius: 10px;
+  font-weight: 700;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--fg);
+  transition: transform .12s ease, background-color .2s ease, border-color .2s ease;
+}
+
+#game-edit-modal .btn:hover,
+#game-create-modal .btn:hover,
+#shop-item-create-modal .btn:hover,
+#shop-item-edit-modal .btn:hover,
+#employee-edit-modal .btn:hover {
+  border-color: var(--primary);
+}
+
+#game-edit-modal .btn:active,
+#game-create-modal .btn:active,
+#shop-item-create-modal .btn:active,
+#shop-item-edit-modal .btn:active,
+#employee-edit-modal .btn:active {
+  transform: translateY(1px);
+}
+
+#game-edit-modal .btn.btn--primary,
+#game-create-modal .btn.btn--primary,
+#shop-item-create-modal .btn.btn--primary,
+#shop-item-edit-modal .btn.btn--primary,
+#employee-edit-modal .btn.btn--primary {
+  border-color: var(--primary);
+  background: color-mix(in oklab, var(--primary) 24%, var(--surface-2));
+}
+
+#game-edit-modal .btn.btn--primary:hover,
+#game-create-modal .btn.btn--primary:hover,
+#shop-item-create-modal .btn.btn--primary:hover,
+#shop-item-edit-modal .btn.btn--primary:hover,
+#employee-edit-modal .btn.btn--primary:hover {
+  background: color-mix(in oklab, var(--primary) 32%, var(--surface-2));
+}
+
+/* Универсальные кнопки-иконки в таблицах (игры, товары, сотрудники) */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  margin: 0 2px;
+  line-height: 1;
+  transition: background 0.15s ease, transform 0.1s ease, opacity 0.15s ease;
+}
+
+.icon-btn__emoji {
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* Цвета по типу действия */
+.icon-btn--edit {
+  color: var(--fg-muted, #ccc);
+}
+
+.icon-btn--delete {
+  color: #ff6b6b;
+}
+
+/* Hover/active эффекты */
+.icon-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  transform: translateY(-1px);
+}
+
+.icon-btn:active {
+  transform: translateY(0);
+  opacity: 0.9;
+}
+
+/* Чтобы не ломали верстку в ячейке */
+.table-actions__cell .icon-btn {
+  vertical-align: middle;
+}
+
+/* Убираем стили visited для ссылок в таблицах игр */
+.table a,
+.table a:visited {
+    color: var(--fg);        /* тот же цвет, что и обычный текст */
+    text-decoration: none;   /* если не нужно подчёркивание */
+}
+
+/* При наведении — можно оставить эффект */
+.table a:hover {
+    color: var(--primary);
+    text-decoration: underline;
+}

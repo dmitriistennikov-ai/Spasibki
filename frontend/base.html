@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Спасибки</title>
+    <link rel="stylesheet" href="css/main.css" />
+</head>
+<body>
+
+    <header class="header" role="banner">
+        <div class="container header__inner">
+            <nav class="tabs" role="tablist" aria-label="Основные разделы">
+                <button class="tabs__button tabs__button--active" role="tab" aria-selected="true" data-tab="my-page">Моя страница</button>
+                <button class="tabs__button" role="tab" aria-selected="false" data-tab="game">Игра</button>
+                <button class="tabs__button" role="tab" aria-selected="false" data-tab="shop">Магазин</button>
+                <button class="tabs__button" role="tab" aria-selected="false" data-tab="settings">Настройки</button>
+            </nav>
+            <div class="brand" aria-label="Главная">Спасибки</div>
+        </div>
+    </header>
+    <main class="main container" role="main">
+        <section id="my-page" class="tab-content tab-content--active" role="tabpanel" aria-labelledby="tab-my-page">
+            <h1 class="visually-hidden">Моя страница</h1>
+            <p class="placeholder"></p>
+            <div id="user-info" class="user-info">
+                <div class="user-info__layout">
+                    <div class="user-info__profile">
+                        <div class="user-info__avatar">
+                            <div class="user-info__icon">👤</div>
+                        </div>
+                        <div class="user-info__details">
+                            <p class="user-info__name"><span id="user-fullname">Кот Батон</span></p>
+                        </div>
+                    </div>
+                    <div class="user-info__stats">
+                        <div class="stat-card">
+                            <p class="stat-card__label">Спасибки</p>
+                            <p class="stat-card__value stat-card__value--thanks" id="current_user-thanks">142</p>
+                        </div>
+                        <div class="stat-card">
+                            <p class="stat-card__label">Баланс</p>
+                            <p class="stat-card__value stat-card__value--balance" id="current_user-balance">87</p>
+                        </div>
+                    </div>
+                </div>
+            <button id="send-thanks-btn">
+                <i data-feather="heart" aria-hidden="true"></i>
+                Отправить Спасибку
+            </button>
+            </div>
+
+            <section id="likes-history-block" aria-labelledby="likes-history-title">
+                <div class="table-actions">
+                    <h2 id="likes-history-title" class="table-actions__title">История Спасибок</h2>
+                    <button id="likes-filter-to-me"   class="btn btn--tiny" aria-pressed="false">Мне</button>
+                    <button id="likes-filter-from-me" class="btn btn--tiny" aria-pressed="false">От меня</button>
+                </div>
+                <div class="table-wrap">
+                    <table id="likes-history" class="table">
+                        <thead>
+                            <tr>
+                                <th>Дата</th>
+                                <th>От кого</th>
+                                <th>Кому</th>
+                                <th>Сообщение</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td class="table__empty" colspan="4">Загрузка…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div id="likes-history-pagination" class="history-pagination">
+                    <button
+                        type="button"
+                        id="likes-history-load-more"
+                        class="btn btn--secondary btn--tiny"
+                        hidden
+                    >
+                        Показать ещё
+                    </button>
+                </div>
+
+            </section>
+        </section>
+
+        <section id="game" class="tab-content" role="tabpanel" aria-labelledby="tab-game" hidden>
+            <h1 class="visually-hidden">Игра</h1>
+
+            <section id="active-game-block" aria-labelledby="active-game-title">
+                <div class="table-games table-games--inline">
+                    <a id="active-game-link" href="#" class="table-games__link" hidden>Название активной игры</a>
+                    <span id="active-game-empty" class="table-games__empty">
+                        В данный момент нет активной игры
+                    </span>
+                    <button id="send-thanks-btn-in-game">
+                        <i data-feather="heart" aria-hidden="true"></i>
+                        Отправить Спасибку
+                    </button>
+                </div>
+                <p id="game-thanks-received" class="thanks-limit">Получено Спасибок в текущей игре: —</p>
+                <p id="game-thanks-limit" class="thanks-limit">Остаток Спасибок в текущей игре: —</p>
+            </section>
+
+        <section id="finished-games-block" aria-labelledby="finished-games-title">
+            <div class="table-games">
+                <h2 id="finished-games-title" class="table-games__title">Завершённые игры</h2>
+            </div>
+            <div class="table-wrap">
+                <table id="finished-games" class="table">
+                    <thead>
+                        <tr>
+                            <th>Название</th>
+                            <th>Описание</th>
+                            <th>Дата начала</th>
+                            <th>Дата завершения</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td class="table__empty" colspan="4">Загрузка…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        </section>
+
+        <section id="shop" class="tab-content" role="tabpanel" aria-labelledby="tab-shop" hidden>
+            <h1 class="visually-hidden">Магазин</h1>
+
+            <section id="shop-items-block" aria-labelledby="shop-items-title">
+                <div class="table-actions">
+                    <h2 id="shop-items-title" class="table-actions__title">Доступные товары</h2>
+                </div>
+
+                <div id="shop-items" class="shop-grid">
+                    <p class="shop-empty">Загрузка товаров…</p>
+                </div>
+            </section>
+        </section>
+
+        <section id="settings" class="tab-content" role="tabpanel" aria-labelledby="tab-settings" hidden>
+            <h1 class="visually-hidden">Настройки</h1>
+
+            <div class="settings-layout">
+                <nav class="settings-sidebar" aria-label="Разделы настроек">
+                    <button
+                        type="button"
+                        class="settings-nav__button"
+                        data-settings-section="game"
+                    >
+                        Игра
+                    </button>
+                    <button
+                        type="button"
+                        class="settings-nav__button"
+                        data-settings-section="shop"
+                    >
+                        Магазин
+                    </button>
+                    <button
+                        type="button"
+                        class="settings-nav__button"
+                        data-settings-section="employees"
+                    >
+                        Сотрудники
+                    </button>
+                </nav>
+
+                <section class="settings-content" aria-live="polite">
+                    <div class="table-actions">
+                        <h2 id="settings-section-title" class="table-actions__title">
+                            Настройки
+                        </h2>
+
+                        <button
+                            id="create-game-btn"
+                            class="btn btn--primary btn--tiny"
+                            type="button"
+                            hidden
+                        >
+                            <i aria-hidden="true"></i>
+                            Создать игру
+                        </button>
+
+                        <button
+                            id="create-shop-item-btn"
+                            class="btn btn--primary btn--tiny"
+                            type="button"
+                            hidden
+                        >
+                            <i aria-hidden="true"></i>
+                            Создать товар
+                        </button>
+
+                        <button
+                            id="update-employees-btn"
+                            class="btn btn--primary btn--tiny"
+                            type="button"
+                            hidden
+                        >
+                            <i aria-hidden="true"></i>
+                            Обновить сотрудников
+                        </button>
+                    </div>
+
+                    <div id="settings-body">
+                        <p class="placeholder">Выберите раздел настроек слева.</p>
+                    </div>
+                </section>
+
+
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Глобальная зона сообщений -->
+    <div id="message-bar" class="message-bar" aria-live="polite" aria-atomic="true"></div>
+
+    <!-- Модалка «Отправить Спасибку» -->
+    <div id="thanks-modal" class="modal" role="dialog" aria-modal="true" aria-hidden="true" hidden>
+        <div class="modal__overlay" data-close="thanks"></div>
+        <div class="modal__dialog" role="document" aria-labelledby="thanks-modal-title">
+            <header class="modal__header">
+                <h3 id="thanks-modal-title" class="modal__title">Отправить Спасибку</h3>
+                <button type="button" class="modal__close" id="thanks-modal-close" aria-label="Закрыть">✕</button>
+            </header>
+            <form id="thanks-form">
+                <div class="modal__content">
+                    <label for="thanks-to" class="form-label">Кому</label>
+                    <select id="thanks-to" required style="width:100%">
+                        <option value="" disabled selected>Загрузка…</option>
+                    </select>
+                </div>
+                <div class="modal__content">
+                    <label for="thanks-message" class="form-label">Сообщение</label>
+                    <textarea id="thanks-message" name="message" rows="4" placeholder="Напишите пару слов…" maxlength="280"></textarea>
+                </div>
+                <footer class="modal__footer">
+                    <button type="submit" class="btn btn--primary">Отправить</button>
+                    <button type="button" class="btn" id="thanks-modal-cancel">Отмена</button>
+                </footer>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модалка  Игра -->
+    <div id="game-modal" class="modal" role="dialog" aria-modal="true" aria-hidden="true" hidden>
+        <div class="modal__overlay" data-close="game"></div>
+        <div class="modal__dialog" role="document" aria-labelledby="game-modal-title">
+            <header class="modal__header">
+                <h3 id="game-modal-title" class="modal__title">Активная игра</h3>
+                <button type="button" class="modal__close" id="game-modal-close" aria-label="Закрыть">✕</button>
+            </header>
+
+            <div class="modal__content">
+                <p><strong>Название:</strong> <span id="game-modal-name">—</span></p>
+                <p><strong>Описание:</strong> <span id="game-modal-description">—</span></p>
+                <div class="game-modal__row game-modal__row--dates">
+                    <p><strong>Дата начала:</strong> <span id="game-modal-start">—</span></p>
+                    <p><strong>Дата завершения:</strong> <span id="game-modal-end">—</span></p>
+                </div>
+                <p><strong>Правила:</strong> <span id="game-modal-rule">—</span></p>
+            </div>
+            <div class="modal__content">
+                <div class="game-rating">
+                    <h4 class="game-rating__title">Рейтинг игры</h4>
+                    <div id="game-modal-rating" class="game-rating__body">
+                        <p class="game-rating__empty">По этой игре ещё нет Спасибок</p>
+                    </div>
+                </div>
+            </div>
+
+            <footer class="modal__footer">
+                <button type="button" class="btn" id="game-modal-close-footer">Закрыть</button>
+            </footer>
+        </div>
+    </div>
+
+        <!-- Модалка редактирования игры -->
+    <div id="game-edit-modal" class="modal" role="dialog" aria-modal="true" aria-hidden="true" hidden>
+        <div class="modal__overlay"></div>
+        <div class="modal__dialog" role="document" aria-labelledby="game-edit-modal-title">
+            <header class="modal__header">
+                <h3 id="game-edit-modal-title" class="modal__title">Редактирование игры</h3>
+                <button type="button" class="modal__close" id="game-edit-modal-close" aria-label="Закрыть">✕</button>
+            </header>
+
+            <form id="game-edit-form">
+                <div class="modal__content">
+                    <label class="form-label" for="game-edit-name">Название</label>
+                    <input id="game-edit-name" name="name" type="text" required />
+                </div>
+
+                <div class="modal__content">
+                    <label class="form-label" for="game-edit-description">Описание</label>
+                    <textarea id="game-edit-description" name="description" rows="3"></textarea>
+                </div>
+
+                <div class="modal__content game-edit__row">
+                    <div>
+                        <label class="form-label" for="game-edit-start">Дата начала</label>
+                        <input id="game-edit-start" name="game_start" type="date" />
+                    </div>
+                    <div>
+                        <label class="form-label" for="game-edit-end">Дата завершения</label>
+                        <input id="game-edit-end" name="game_end" type="date" />
+                    </div>
+                </div>
+
+                <div class="modal__content">
+                    <label class="form-label" for="game-edit-limit-param">Период лимита</label>
+                    <select id="game-edit-limit-param" name="setting_limitParameter" required>
+                        <option value="day">В день</option>
+                        <option value="week">В неделю</option>
+                        <option value="month">В месяц</option>
+                        <option value="game">За игру</option>
+                    </select>
+                </div>
+
+                <div class="modal__content game-edit__row">
+                    <div>
+                        <label class="form-label" for="game-edit-limit-value">Лимит Спасибок за период</label>
+                        <input id="game-edit-limit-value" name="setting_limitValue" type="number" min="1" />
+                    </div>
+                    <div>
+                        <label class="form-label" for="game-edit-limit-to-one">Лимит Спасибок одному человеку</label>
+                        <input id="game-edit-limit-to-one" name="setting_limitToOneUser" type="number" min="1" />
+                    </div>
+                </div>
+
+                <div class="modal__content">
+                    <label class="form-checkbox">
+                        <input id="game-edit-is-active" name="game_is_active" type="checkbox" />
+                        <span>Игра Активна</span>
+                    </label>
+                    <p id="game-edit-active-hint" class="game-edit__hint" hidden>
+                        Если у вас уже есть активная игра, то она завершится.
+                    </p>
+                </div>
+
+                <footer class="modal__footer">
+                    <button type="button" class="btn" id="game-edit-cancel">Отмена</button>
+                    <button type="submit" class="btn btn--primary">Сохранить</button>
+                </footer>
+            </form>
+        </div>
+    </div>
+
+        <!-- Модалка создания игры -->
+    <div id="game-create-modal" class="modal" role="dialog" aria-modal="true" aria-hidden="true" hidden>
+        <div class="modal__overlay"></div>
+        <div class="modal__dialog" role="document" aria-labelledby="game-create-modal-title">
+            <header class="modal__header">
+                <h3 id="game-create-modal-title" class="modal__title">Новая игра</h3>
+                <button type="button" class="modal__close" id="game-create-modal-close" aria-label="Закрыть">✕</button>
+            </header>
+
+            <form id="game-create-form">
+                <div class="modal__content">
+                    <label class="form-label" for="game-create-name">Название</label>
+                    <input id="game-create-name" name="name" type="text" required />
+                </div>
+
+                <div class="modal__content">
+                    <label class="form-label" for="game-create-description">Описание</label>
+                    <textarea id="game-create-description" name="description" rows="3"></textarea>
+                </div>
+
+                <div class="modal__content game-edit__row">
+                    <div>
+                        <label class="form-label" for="game-create-start">Дата начала</label>
+                        <input id="game-create-start" name="game_start" type="date" />
+                    </div>
+                    <div>
+                        <label class="form-label" for="game-create-end">Дата завершения</label>
+                        <input id="game-create-end" name="game_end" type="date" />
+                    </div>
+                </div>
+
+                <div class="modal__content">
+                    <label class="form-label" for="game-create-limit-param">Период лимита</label>
+                    <select id="game-create-limit-param" name="setting_limitParameter" required>
+                        <option value="day">В день</option>
+                        <option value="week">В неделю</option>
+                        <option value="month">В месяц</option>
+                        <option value="game">За игру</option>
+                    </select>
+                </div>
+
+                <div class="modal__content game-edit__row">
+                    <div>
+                        <label class="form-label" for="game-create-limit-value">Лимит Спасибок за период</label>
+                        <input id="game-create-limit-value" name="setting_limitValue" type="number" min="1" />
+                    </div>
+                    <div>
+                        <label class="form-label" for="game-create-limit-to-one">Лимит Спасибок одному человеку</label>
+                        <input id="game-create-limit-to-one" name="setting_limitToOneUser" type="number" min="1" />
+                    </div>
+                </div>
+
+                <div class="modal__content">
+                    <label class="form-checkbox">
+                        <input id="game-create-is-active" name="game_is_active" type="checkbox" />
+                        <span>Сделать игру активной</span>
+                    </label>
+                    <p id="game-create-active-hint" class="game-edit__hint" hidden>
+                        Если у вас уже есть активная игра, то она завершится.
+                    </p>
+                </div>
+
+                <footer class="modal__footer">
+                    <button type="button" class="btn" id="game-create-cancel">Отмена</button>
+                    <button type="submit" class="btn btn--primary">Создать</button>
+                </footer>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модалка создания товара магазина -->
+    <div
+        id="shop-item-create-modal"
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-hidden="true"
+        hidden
+    >
+        <div class="modal__overlay"></div>
+
+        <div class="modal__dialog" role="document" aria-labelledby="shop-item-create-modal-title">
+            <header class="modal__header">
+                <h3 id="shop-item-create-modal-title" class="modal__title">
+                    Новый товар
+                </h3>
+                <button
+                    type="button"
+                    class="modal__close"
+                    id="shop-item-create-modal-close"
+                    aria-label="Закрыть"
+                >
+                    ✕
+                </button>
+            </header>
+
+            <form id="shop-item-create-form">
+                <div class="modal__content">
+                    <label class="form-label" for="shop-item-create-name">Название</label>
+                    <input
+                        id="shop-item-create-name"
+                        name="name"
+                        type="text"
+                        required
+                    />
+                </div>
+
+                <div class="modal__content">
+                    <label class="form-label" for="shop-item-create-description">Описание</label>
+                    <textarea
+                        id="shop-item-create-description"
+                        name="description"
+                        rows="3"
+                    ></textarea>
+                </div>
+
+                <div class="modal__content game-edit__row">
+                    <div>
+                        <label class="form-label" for="shop-item-create-price">Цена</label>
+                        <input
+                            id="shop-item-create-price"
+                            name="price"
+                            type="number"
+                            min="0"
+                            step="1"
+                            required
+                        />
+                    </div>
+                    <div>
+                        <label class="form-label" for="shop-item-create-stock">Остаток на складе</label>
+                        <input
+                            id="shop-item-create-stock"
+                            name="stock"
+                            type="number"
+                            min="0"
+                            step="1"
+                            required
+                        />
+                    </div>
+                </div>
+
+                <div class="modal__content">
+                    <label class="form-checkbox">
+                        <input
+                            id="shop-item-create-is-active"
+                            name="is_active"
+                            type="checkbox"
+                            checked
+                        />
+                        <span>Показывать товар в магазине</span>
+                    </label>
+                </div>
+
+                <footer class="modal__footer">
+                    <button
+                        type="button"
+                        class="btn"
+                        id="shop-item-create-cancel"
+                    >
+                        Отмена
+                    </button>
+                    <button
+                        type="submit"
+                        class="btn btn--primary"
+                    >
+                        Создать
+                    </button>
+                </footer>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модалка редактирования товара магазина -->
+    <div
+        id="shop-item-edit-modal"
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-hidden="true"
+        hidden
+    >
+        <div class="modal__overlay"></div>
+
+        <div class="modal__dialog" role="document" aria-labelledby="shop-item-edit-modal-title">
+            <header class="modal__header">
+                <h3 id="shop-item-edit-modal-title" class="modal__title">
+                    Редактирование товара
+                </h3>
+                <button
+                    type="button"
+                    class="modal__close"
+                    id="shop-item-edit-modal-close"
+                    aria-label="Закрыть"
+                >
+                    ✕
+                </button>
+            </header>
+
+            <form id="shop-item-edit-form">
+                <div class="modal__content">
+                    <label class="form-label" for="shop-item-edit-name">Название</label>
+                    <input
+                        id="shop-item-edit-name"
+                        name="name"
+                        type="text"
+                        required
+                    />
+                </div>
+
+                <div class="modal__content">
+                    <label class="form-label" for="shop-item-edit-description">Описание</label>
+                    <textarea
+                        id="shop-item-edit-description"
+                        name="description"
+                        rows="3"
+                    ></textarea>
+                </div>
+
+                <div class="modal__content game-edit__row">
+                    <div>
+                        <label class="form-label" for="shop-item-edit-price">Цена</label>
+                        <input
+                            id="shop-item-edit-price"
+                            name="price"
+                            type="number"
+                            min="0"
+                            step="1"
+                            required
+                        />
+                    </div>
+                    <div>
+                        <label class="form-label" for="shop-item-edit-stock">Остаток на складе</label>
+                        <input
+                            id="shop-item-edit-stock"
+                            name="stock"
+                            type="number"
+                            min="0"
+                            step="1"
+                            required
+                        />
+                    </div>
+                </div>
+
+                <div class="modal__content">
+                    <label class="form-checkbox">
+                        <input
+                            id="shop-item-edit-is-active"
+                            name="is_active"
+                            type="checkbox"
+                        />
+                        <span>Показывать товар в магазине</span>
+                    </label>
+                </div>
+
+                <footer class="modal__footer">
+                    <button
+                        type="button"
+                        class="btn"
+                        id="shop-item-edit-cancel"
+                    >
+                        Отмена
+                    </button>
+                    <button
+                        type="submit"
+                        class="btn btn--primary"
+                    >
+                        Сохранить
+                    </button>
+                </footer>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модалка редактирования сотрудника -->
+    <div
+        id="employee-edit-modal"
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-hidden="true"
+        hidden
+    >
+        <div class="modal__overlay"></div>
+
+        <div class="modal__dialog" role="document" aria-labelledby="employee-edit-modal-title">
+            <header class="modal__header">
+                <h3 id="employee-edit-modal-title" class="modal__title">
+                    Редактирование сотрудника
+                </h3>
+                <button
+                    type="button"
+                    class="modal__close"
+                    id="employee-edit-modal-close"
+                    aria-label="Закрыть"
+                >
+                    ✕
+                </button>
+            </header>
+
+            <form id="employee-edit-form">
+                <div class="modal__content">
+                    <label class="form-label" for="employee-edit-name">Имя</label>
+                    <input
+                        id="employee-edit-name"
+                        name="name"
+                        type="text"
+                        required
+                    />
+                </div>
+
+                <div class="modal__content">
+                    <label class="form-label" for="employee-edit-lastname">Фамилия</label>
+                    <input
+                        id="employee-edit-lastname"
+                        name="lastname"
+                        type="text"
+                        required
+                    />
+                </div>
+
+                <div class="modal__content">
+                    <label class="form-label" for="employee-edit-coins">Баланс</label>
+                    <input
+                        id="employee-edit-coins"
+                        name="coins"
+                        type="number"
+                        min="0"
+                        step="1"
+                        required
+                    />
+                </div>
+
+                <div class="modal__content">
+                    <label class="form-checkbox">
+                        <input
+                            id="employee-edit-is-gamer"
+                            name="is_gamer"
+                            type="checkbox"
+                        />
+                        <span>Принимает участие в играх</span>
+                    </label>
+                </div>
+
+                <div class="modal__content">
+                    <label class="form-checkbox">
+                        <input
+                            id="employee-edit-is-admin"
+                            name="is_admin"
+                            type="checkbox"
+                        />
+                        <span>Расширенные права доступа</span>
+                    </label>
+                </div>
+
+                <footer class="modal__footer">
+                    <button
+                        type="button"
+                        class="btn"
+                        id="employee-edit-cancel"
+                    >
+                        Отмена
+                    </button>
+                    <button
+                        type="submit"
+                        class="btn btn--primary"
+                    >
+                        Сохранить
+                    </button>
+                </footer>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/feather-icons"></script>
+    <script src="js/main.js" defer></script>
+
+</body>
+</html>
