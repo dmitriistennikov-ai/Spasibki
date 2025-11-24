@@ -1,7 +1,8 @@
-from backend.scripts.database import SessionLocal
 from backend.models import Employee
 from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session
 
+from backend.models import Employee
 
 
 def save_or_update_employees(users: list[dict], db: Session) -> int:
@@ -11,9 +12,7 @@ def save_or_update_employees(users: list[dict], db: Session) -> int:
     """
     count = 0
     for data in users:
-        # print(data)
         bitrix_id = data.get("ID")
-        # print(bitrix_id)
         if not bitrix_id:
             continue
 

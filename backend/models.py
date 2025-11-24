@@ -1,12 +1,14 @@
+from datetime import datetime, timedelta
+from enum import Enum as PyEnum
+from typing import Optional
+
+from pydantic import BaseModel, Field, ConfigDict
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Enum, Index, Text, func
 from sqlalchemy import JSON
 from sqlalchemy.orm import relationship
-from enum import Enum as PyEnum
-from datetime import datetime, timedelta
+
 from backend.scripts.database import Base
-from pydantic import BaseModel, Field, validator, ConfigDict
-from decimal import Decimal
-from typing import Optional
+
 LOCAL_OFFSET = 5
 
 # --- 1. Таблица для авторизации / токенов Bitrix24 ---
@@ -14,7 +16,7 @@ class BitrixAuth(Base):
     __tablename__ = "bitrix_auth"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("employees.id"), nullable=True)
+    user_id = Column(Integer, ForeignKey("employees.bitrix_id"), nullable=False)
     member_id = Column(String, index=True)
     status = Column(String, nullable=True)
     domain = Column(String, nullable=True)
@@ -24,7 +26,11 @@ class BitrixAuth(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # связь с сотрудником (один-к-одному)
-    employee = relationship("Employee", back_populates="auth")
+    employee = relationship(
+        "Employee",
+        back_populates="auth",
+        primaryjoin="BitrixAuth.user_id == Employee.bitrix_id",
+    )
 
 
 # --- 2. Таблица сотрудников ---

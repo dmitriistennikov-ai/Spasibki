@@ -1,20 +1,22 @@
-from backend.api.install import router as install_router
-from backend.api.users import router as users_router
-from backend.api.like import router as like_router
-from backend.api.user import router as user_router
-from backend.api.create_game import router as create_game_router
-from backend.api.games import router as games_router
-from backend.api.likes_info import router as likes_info_router
-from backend.api.likes_history import router as likes_history_router
-from backend.api.items import router as items_router
-from backend.services.bitrix_user import get_current_user
-from backend.services.db_save_tokens import save_or_update_token
-from backend.services.db_save_employee import save_or_update_employees
-from backend.scripts.database import Base, engine, SessionLocal
+from pathlib import Path
+
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from pathlib import Path
+
+from backend.api.create_game import router as create_game_router
+from backend.api.games import router as games_router
+from backend.api.install import router as install_router
+from backend.api.items import router as items_router
+from backend.api.like import router as like_router
+from backend.api.likes_history import router as likes_history_router
+from backend.api.likes_info import router as likes_info_router
+from backend.api.user import router as user_router
+from backend.api.users import router as users_router
+from backend.scripts.database import Base, engine, SessionLocal
+from backend.services.bitrix_user import get_current_user
+from backend.services.db_save_employee import save_or_update_employees
+from backend.services.db_save_tokens import save_or_update_token
 
 app = FastAPI()
 
@@ -51,8 +53,8 @@ async def root(request: Request):
 
     db = SessionLocal()
     try:
-        save_or_update_token(domain, user_id, member_id, auth_id, refresh_id, expires_in, status, db)
         save_or_update_employees([current_user_data], db)
+        save_or_update_token(domain, user_id, member_id, auth_id, refresh_id, expires_in, status, db)
         db.commit()
 
     except Exception as e:

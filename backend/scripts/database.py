@@ -1,18 +1,63 @@
+# # Файл базы данных SQLite (создастся автоматически)
+# DATABASE_URL = "sqlite:///./database.db"
+#
+# # Создаём движок подключения
+# engine = create_engine(
+#     DATABASE_URL, connect_args={"check_same_thread": False}
+# )
+#
+# # Создаём класс для описания таблиц
+# Base = declarative_base()
+#
+# # Создаём фабрику для подключения к БД (сессии)
+# SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+#
+# def get_db():
+#     db = SessionLocal()
+#     try:
+#         yield db
+#     finally:
+#         db.close()
+
+import os
+
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
+from sqlalchemy.engine import URL
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-# Файл базы данных SQLite (создастся автоматически)
-DATABASE_URL = "sqlite:///./database.db"
+load_dotenv()
 
-# Создаём движок подключения
-engine = create_engine(
-    DATABASE_URL, connect_args={"check_same_thread": False}
+DB_USER = os.getenv("DB_USER", "postgres")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "123987")
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_PORT = os.getenv("DB_PORT", "5433")
+DB_NAME = os.getenv("DB_NAME", "spasibki")
+
+DATABASE_URL = URL.create(
+    drivername="postgresql+psycopg2",
+    username=DB_USER,
+    password=DB_PASSWORD,
+    host=DB_HOST,
+    port=int(DB_PORT),
+    database=DB_NAME,
 )
 
-# Создаём класс для описания таблиц
+print("DB_USER:", repr(DB_USER))
+print("DB_PASSWORD:", repr(DB_PASSWORD))
+print("DB_HOST:", repr(DB_HOST))
+print("DB_PORT:", repr(DB_PORT))
+print("DB_NAME:", repr(DB_NAME))
+print("DATABASE_URL:", DATABASE_URL)
+
+
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+)
+
 Base = declarative_base()
 
-# Создаём фабрику для подключения к БД (сессии)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def get_db():
