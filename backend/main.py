@@ -15,6 +15,7 @@ from backend.api.user import router as user_router
 from backend.api.users import router as users_router
 from backend.scripts.database import Base, engine, SessionLocal
 from backend.services.bitrix_user import get_current_user
+from backend.services.bitrix_user_photo import get_user_photo
 from backend.services.db_save_employee import save_or_update_employees
 from backend.services.db_save_tokens import save_or_update_token
 
@@ -50,6 +51,9 @@ async def root(request: Request):
 
     current_user_data = await get_current_user(auth_id, refresh_id, domain)
     user_id = current_user_data["ID"]
+
+    current_user_photo = await get_user_photo(auth_id, refresh_id, domain, user_id)
+    current_user_data["PERSONAL_PHOTO"] = current_user_photo
 
     db = SessionLocal()
     try:

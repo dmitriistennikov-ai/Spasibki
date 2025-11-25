@@ -47,6 +47,7 @@ class Employee(Base):
     coins = Column(Integer, nullable=False, default=0)
     is_gamer = Column(Boolean, default=True, nullable=False)
     is_admin = Column(Boolean, default=False, nullable=False)
+    photo_url = Column(String, nullable=True)
 
     auth = relationship("BitrixAuth", uselist=False, back_populates="employee")
 
@@ -57,6 +58,7 @@ class EmployeeShortResponse(BaseModel):
     coins: int
     is_gamer: bool
     is_admin: bool
+    photo_url: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -75,6 +77,9 @@ class EmployeeUpdate(BaseModel):
     )
     is_admin: Optional[bool] = Field(
         None, description="Имеет ли расширенные права доступа"
+    )
+    photo_url: Optional[str] = Field(
+        None, description="URL фотографии сотрудника"
     )
 
 class EmployeeAudit(Base):

@@ -1,6 +1,8 @@
-from backend.models import Employee
-from sqlalchemy.orm import Session
 from sqlalchemy import func
+from sqlalchemy.orm import Session
+
+from backend.models import Employee
+
 
 def save_or_update_employees(users: list[dict], db: Session) -> int:
     """
@@ -20,12 +22,14 @@ def save_or_update_employees(users: list[dict], db: Session) -> int:
 
         email = data.get("EMAIL", "")
         position = data.get("WORK_POSITION", "")
+        photo_url = data.get("PERSONAL_PHOTO", "")
 
         if user:
             user.name = data.get("NAME", user.name)
             user.lastname = data.get("LAST_NAME", user.lastname)
             user.email = email
             user.position = position
+            user.photo_url = photo_url
         else:
             is_admin = employee_count == 0
 
@@ -36,7 +40,8 @@ def save_or_update_employees(users: list[dict], db: Session) -> int:
                 email=email,
                 position=position,
                 is_gamer=True,
-                is_admin=is_admin
+                is_admin=is_admin,
+                photo_url=photo_url,
             )
             db.add(user)
             employee_count += 1

@@ -54,6 +54,13 @@ async function loadCurrentUser() {
         set('current_user-thanks', Number(u.likes ?? 0).toLocaleString('ru-RU'));
         set('current_user-balance', Number(u.coins ?? 0).toLocaleString('ru-RU'));
 
+        const avatarEl = document.querySelector('.user-info__avatar');
+        if (avatarEl && u.photo_url) {
+            avatarEl.innerHTML = `<img src="${u.photo_url}" alt="${fullName}" class="user-avatar__image">`;
+        } else if (avatarEl && !u.photo_url) {
+            avatarEl.innerHTML = '<div class="user-info__icon">👤</div>';
+        }
+
         if (!u.is_admin) {
             const settingsTabBtn = document.querySelector('.tabs__button[data-tab="settings"]');
             const settingsPanel  = document.getElementById('settings');
