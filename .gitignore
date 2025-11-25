@@ -21,3 +21,7 @@ env/
 # Файлы окружения
 .env
 .env.local
+
+# БД
+*.db
+*.sqlite
