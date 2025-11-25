@@ -499,9 +499,34 @@ body {
 
 .shop-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); /* 2–3 карточки в ряд */
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
   margin-top: 8px;
+  max-width: 100%;
+}
+
+@media (min-width: 1200px) {
+  .shop-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (min-width: 900px) and (max-width: 1199px) {
+  .shop-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 600px) and (max-width: 899px) {
+  .shop-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 599px) {
+  .shop-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .shop-empty {
@@ -512,28 +537,39 @@ body {
   border: 1px solid var(--border);
   color: var(--muted);
   font-size: 14px;
+  text-align: center;
+  grid-column: 1 / -1;
 }
 
 /* Карточка товара */
 .shop-card {
   display: flex;
-  gap: 12px;
+  flex-direction: column;
   padding: 12px;
   border-radius: 12px;
   background: #292524;
   border: 1px solid var(--border);
-  min-height: 140px;
+  min-height: 200px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  width: 100%;
+}
+
+.shop-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
 }
 
 /* Левая часть — картинка, ~60% */
 .shop-card__media {
-  flex: 0 1 60%;              /* ВАЖНО: разрешаем сжиматься (shrink = 1) */
-  border-radius: 10px;
+  flex: 0 0 auto;
+  height: 180px;
+  border-radius: 8px;
   overflow: hidden;
   background: #1f2933;
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-bottom: 12px;
 }
 
 .shop-card__image {
@@ -545,37 +581,41 @@ body {
 
 /* Заглушка, если картинки нет */
 .shop-card__image-placeholder {
-  font-size: 2.5rem;
-  opacity: 0.9;
+  font-size: 4rem;
+  opacity: 0.7;
 }
 
 /* Правая часть — текст и кнопка, ~40% */
 .shop-card__info {
-  flex: 1 1 40%;              /* тоже может сжиматься */
-  min-width: 0;               /* чтобы текст не выталкивал блок за пределы */
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 13px;
 }
 
 .shop-card__title {
-  margin: 0 0 4px;
-  font-size: 15px;
+  margin: 0;
+  font-size: 16px;
   font-weight: 700;
+  line-height: 1.3;
 }
 
 .shop-card__description {
-  margin: 0 0 4px;
+  margin: 0;
   color: var(--muted);
-  font-size: 13px;
-  word-wrap: break-word;
+  font-size: 14px;
+  line-height: 1.4;
+  flex: 1;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .shop-card__price,
 .shop-card__stock {
   margin: 0;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .shop-card__price {
@@ -583,26 +623,65 @@ body {
   color: #fbbf24;
 }
 
-/* Кнопка "Купить" — внизу правой части */
-.shop-card__buy {
-  margin-top: auto;
+.shop-card__stock {
+  color: var(--muted);
 }
 
-/* чуть приглушить пока кнопка "заглушка" */
+/* Кнопка "Купить" — внизу правой части */
+.shop-card__buy {
+  margin-top: 8px;
+  width: 100%;
+}
+
 .shop-card__buy[disabled] {
-  opacity: .7;
+  opacity: 0.6;
   cursor: not-allowed;
+  background: #6b7280;
+  border-color: #6b7280;
+}
+
+.shop-card__buy[disabled]:hover {
+  background: #6b7280;
+  border-color: #6b7280;
+  transform: none;
 }
 
 /* Адаптив: на узких экранах картинка сверху, текст снизу */
-@media (max-width: 768px) {
-  .shop-card {
-    flex-direction: column;
+@media (max-width: 1200px) {
+  .shop-grid {
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   }
-  .shop-card__media,
-  .shop-card__info {
-    flex: 0 0 auto;
-    width: 100%;
+}
+
+@media (max-width: 768px) {
+  .shop-grid {
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+  }
+
+  .shop-card {
+    min-height: 180px;
+    padding: 10px;
+  }
+
+  .shop-card__media {
+    height: 140px;
+  }
+
+  .shop-card__image-placeholder {
+    font-size: 3rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .shop-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .shop-card {
+    max-width: 100%;
+    margin: 0;
   }
 }
 
@@ -940,4 +1019,85 @@ body {
 .table a:hover {
     color: var(--primary);
     text-decoration: underline;
+}
+
+/* Аннотация блоков Баланс и Спасибки */
+/* Стили для подсказок при наведении на блок (снизу) */
+.stat-card {
+    position: relative;
+    cursor: help;
+}
+
+.stat-card::before {
+    content: attr(data-tooltip);
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    margin-top: 8px;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.85);
+    color: white;
+    font-size: 14px;
+    line-height: 1.4;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    width: 220px;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    pointer-events: none;
+    text-align: center;
+    white-space: normal;
+    word-wrap: break-word;
+}
+
+/* Стрелочка у подсказки (теперь сверху) */
+.stat-card::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(2px);
+    border: 6px solid transparent;
+    border-bottom-color: rgba(0, 0, 0, 0.85);
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    pointer-events: none;
+}
+
+/* Показываем подсказку при ховере */
+.stat-card:hover::before,
+.stat-card:hover::after {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* Адаптивность для мобильных */
+@media (max-width: 768px) {
+    .stat-card::before {
+        width: 180px;
+        font-size: 13px;
+    }
+
+    /* На очень маленьких экранах подсказка прижимается к краю */
+    @media (max-width: 480px) {
+        .stat-card::before {
+            width: 160px;
+            left: 50%;
+            transform: translateX(-50%) translateY(10px);
+        }
+    }
+}
+
+/* Небольшая анимация при наведении на блок */
+.stat-card {
+    transition: transform 0.2s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
 }

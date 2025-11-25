@@ -1856,6 +1856,35 @@ async function submitEmployeeEditForm(e) {
 }
 
 
+// Инициализация подсказок по клику
+function initTooltips() {
+    const tooltips = document.querySelectorAll('.stat-card__tooltip');
+
+    tooltips.forEach(tooltip => {
+        const icon = tooltip.querySelector('.tooltip-icon');
+
+        icon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isActive = tooltip.classList.contains('active');
+
+            // Закрываем все остальные подсказки
+            document.querySelectorAll('.stat-card__tooltip.active').forEach(t => {
+                if (t !== tooltip) t.classList.remove('active');
+            });
+
+            // Переключаем текущую
+            tooltip.classList.toggle('active', !isActive);
+        });
+    });
+
+    // Закрываем подсказки при клике вне
+    document.addEventListener('click', () => {
+        document.querySelectorAll('.stat-card__tooltip.active').forEach(tooltip => {
+            tooltip.classList.remove('active');
+        });
+    });
+}
+
 /* ======================= Boot ======================= */
 document.addEventListener('DOMContentLoaded', () => {
     initTabs();
@@ -2075,6 +2104,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    initTooltips();
 })
 
 

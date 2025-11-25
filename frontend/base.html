@@ -35,11 +35,12 @@
                         </div>
                     </div>
                     <div class="user-info__stats">
-                        <div class="stat-card">
+                        <div class="stat-card" data-tooltip="Количество полученных Спасибок за всё время">
                             <p class="stat-card__label">Спасибки</p>
                             <p class="stat-card__value stat-card__value--thanks" id="current_user-thanks">142</p>
                         </div>
-                        <div class="stat-card">
+                        <div class="stat-card"
+                             data-tooltip="Количество игровых монет, которые вы можете потратить в магазине. 1 полученная Спасибка = 1 монета">
                             <p class="stat-card__label">Баланс</p>
                             <p class="stat-card__value stat-card__value--balance" id="current_user-balance">87</p>
                         </div>
@@ -404,7 +405,7 @@
                 <div class="modal__content">
                     <label class="form-checkbox">
                         <input id="game-create-is-active" name="game_is_active" type="checkbox" />
-                        <span>Сделать игру активной</span>
+                        <span>Игра активна</span>
                     </label>
                     <p id="game-create-active-hint" class="game-edit__hint" hidden>
                         Если у вас уже есть активная игра, то она завершится.
