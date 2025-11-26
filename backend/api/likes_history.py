@@ -1,12 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from backend.scripts.database import get_db
-from backend.models import LikeTransaction, Employee
-from typing import List
-from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional
 from typing import Literal
+from typing import Optional
+
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from backend.models import LikeTransaction, Employee
+from backend.scripts.database import get_db
 
 router = APIRouter()
 
@@ -23,25 +24,27 @@ class LikeHistoryResponse(BaseModel):
     class Config:
         from_attributes = True
 
-@router.get("/api/user/{user_id}/likes", response_model=List[LikeHistoryResponse])
-async def get_likes_history(user_id: int, limit: int = 50, offset: int = 0, db: Session = Depends(get_db)):
 
+@router.get("/api/user/{user_id}/likes", response_model=dict)
+async def get_likes_history(user_id: int, limit: int = 50, offset: int = 0, db: Session = Depends(get_db)):
     likes = db.query(LikeTransaction).filter(
         (LikeTransaction.from_user_bitrix_id == user_id) |
         (LikeTransaction.to_user_bitrix_id == user_id)
     ).order_by(LikeTransaction.created_at.desc()).offset(offset).limit(limit).all()
 
     if not likes:
-        return []
+        return {"likes": [], "total_pages": 1}
+
+    total_likes = db.query(LikeTransaction).filter(
+        (LikeTransaction.from_user_bitrix_id == user_id) |
+        (LikeTransaction.to_user_bitrix_id == user_id)
+    ).count()
+
+    total_pages = (total_likes + limit - 1) // limit  # Количество страниц
 
     result = []
-
     for like in likes:
-        if like.from_user_bitrix_id == user_id:
-            type_ = "sent"
-        else:
-            type_ = "received"
-
+        type_ = "sent" if like.from_user_bitrix_id == user_id else "received"
         from_user = db.query(Employee).filter_by(bitrix_id=like.from_user_bitrix_id).first()
         to_user = db.query(Employee).filter_by(bitrix_id=like.to_user_bitrix_id).first()
 
@@ -56,4 +59,4 @@ async def get_likes_history(user_id: int, limit: int = 50, offset: int = 0, db: 
             to_user_name=f"{to_user.name} {to_user.lastname}" if to_user else "Неизвестно",
         ))
 
-    return result
+    return {"likes": result, "total_pages": total_pages}

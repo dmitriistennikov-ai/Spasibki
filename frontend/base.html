@@ -74,14 +74,62 @@
                 <div id="likes-history-pagination" class="history-pagination">
                     <button
                         type="button"
-                        id="likes-history-load-more"
-                        class="btn btn--secondary btn--tiny"
-                        hidden
+                        id="likes-history-prev-page-btn"
+                        class="pagination__btn"
+                        disabled
                     >
-                        Показать ещё
+                        Предыдущая
+                    </button>
+                    <span id="likes-history-current-page">Страница 1</span>
+                    <button
+                            type="button"
+                            id="likes-history-next-page-btn"
+                            class="pagination__btn"
+                    >
+                        Следующая
                     </button>
                 </div>
+            </section>
 
+            <section id="purchases-history-block" aria-labelledby="purchases-history-title" style="margin-top: 3rem;">
+                <div class="table-actions">
+                    <h2 id="purchases-history-title" class="table-actions__title">История покупок</h2>
+                </div>
+                <div class="table-wrap">
+                    <table id="purchases-history" class="table">
+                        <thead>
+                        <tr>
+                            <th>Дата</th>
+                            <th>Товар</th>
+                            <th>Стоимость</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr>
+                            <td class="table__empty" colspan="3">Загрузка...</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div id="purchases-history-pagination" class="history-pagination">
+                    <button
+                            type="button"
+                            id="purchases-prev-btn"
+                            class="pagination__btn"
+                            disabled
+                    >
+                        Предыдущая
+                    </button>
+                    <span id="purchases-current-page">Страница 1</span>
+                    <button
+                            type="button"
+                            id="purchases-next-btn"
+                            class="pagination__btn"
+                            disabled
+                    >
+                        Следующая
+                    </button>
+                </div>
             </section>
         </section>
 
@@ -99,30 +147,53 @@
                         Отправить Спасибку
                     </button>
                 </div>
-                <p id="game-thanks-received" class="thanks-limit">Получено Спасибок в текущей игре: —</p>
-                <p id="game-thanks-limit" class="thanks-limit">Остаток Спасибок в текущей игре: —</p>
+                <div id="game-stats-container">
+                    <p id="game-thanks-received" class="thanks-limit">Получено Спасибок в текущей игре: —</p>
+                    <p id="game-thanks-limit" class="thanks-limit">Остаток Спасибок в текущей игре: —</p>
+                </div>
             </section>
 
-        <section id="finished-games-block" aria-labelledby="finished-games-title">
-            <div class="table-games">
-                <h2 id="finished-games-title" class="table-games__title">Завершённые игры</h2>
-            </div>
-            <div class="table-wrap">
-                <table id="finished-games" class="table">
-                    <thead>
+            <section id="finished-games-block" aria-labelledby="finished-games-title">
+                <div class="table-games">
+                    <h2 id="finished-games-title" class="table-games__title">Завершённые игры</h2>
+                </div>
+                <div class="table-wrap">
+                    <table id="finished-games" class="table">
+                        <thead>
                         <tr>
                             <th>Название</th>
                             <th>Описание</th>
                             <th>Дата начала</th>
                             <th>Дата завершения</th>
                         </tr>
-                    </thead>
-                    <tbody>
-                        <tr><td class="table__empty" colspan="4">Загрузка…</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
+                        </thead>
+                        <tbody>
+                        <tr>
+                            <td class="table__empty" colspan="4">Загрузка…</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="pagination" id="finished-games-pagination">
+                    <button class="pagination__btn" id="prev-page-btn" disabled>Предыдущая</button>
+                    <span id="current-page">Страница 1</span>
+                    <button class="pagination__btn" id="next-page-btn">Следующая</button>
+                </div>
+            </section>
+            <section id="overall-rating-block" aria-labelledby="overall-rating-title">
+                <div class="table-games">
+                    <h2 id="overall-rating-title" class="table-games__title">Общий рейтинг</h2>
+                </div>
+
+                <div id="overall-rating-container" class="game-rating">
+                    <p class="game-rating__loading">Загружаем общий рейтинг…</p>
+                </div>
+                <div class="pagination" id="overall-rating-pagination">
+                    <button class="pagination__btn" id="overall-rating-prev-btn" disabled>Предыдущая</button>
+                    <span id="overall-rating-current-page">Страница 1</span>
+                    <button class="pagination__btn" id="overall-rating-next-btn">Следующая</button>
+                </div>
+            </section>
         </section>
 
         <section id="shop" class="tab-content" role="tabpanel" aria-labelledby="tab-shop" hidden>
@@ -229,9 +300,29 @@
             <form id="thanks-form">
                 <div class="modal__content">
                     <label for="thanks-to" class="form-label">Кому</label>
-                    <select id="thanks-to" required style="width:100%">
+                    <select
+                            id="thanks-to"
+                            name="to"
+                            required
+                            class="visually-hidden"
+                    >
                         <option value="" disabled selected>Загрузка…</option>
                     </select>
+                    <div id="thanks-to-dropdown" class="thanks-to-dropdown">
+                        <button
+                                type="button"
+                                class="thanks-to-dropdown__trigger"
+                                aria-haspopup="listbox"
+                                aria-expanded="false"
+                        >
+                            Загрузка…
+                        </button>
+                        <ul
+                                class="thanks-to-dropdown__list"
+                                role="listbox"
+                                hidden
+                        ></ul>
+                    </div>
                 </div>
                 <div class="modal__content">
                     <label for="thanks-message" class="form-label">Сообщение</label>
@@ -418,7 +509,7 @@
         </div>
     </div>
 
-    <!-- Модалка создания товара магазина -->
+    <!-- Модалка создания товара -->
     <div
         id="shop-item-create-modal"
         class="modal"
@@ -453,6 +544,30 @@
                         type="text"
                         required
                     />
+                </div>
+
+                <div class="modal__content">
+                    <label for="shop-item-create-photo" class="form-label">Фото товара</label>
+                    <input
+                            type="file"
+                            id="shop-item-create-photo"
+                            accept="image/*"
+                    >
+                    <input
+                            type="hidden"
+                            id="shop-item-create-photo-url"
+                    >
+                    <div id="shop-item-create-photo-preview" class="shop-item-photo-preview" hidden>
+                        <button
+                                type="button"
+                                id="shop-item-create-photo-preview-clear"
+                                class="shop-item-photo-preview__clear"
+                                aria-label="Удалить фото"
+                        >
+                            ✕
+                        </button>
+                        <img alt="Превью фото товара">
+                    </div>
                 </div>
 
                 <div class="modal__content">
@@ -520,7 +635,7 @@
         </div>
     </div>
 
-    <!-- Модалка редактирования товара магазина -->
+    <!-- Модалка редактирования товара-->
     <div
         id="shop-item-edit-modal"
         class="modal"
@@ -555,6 +670,30 @@
                         type="text"
                         required
                     />
+                </div>
+
+                <div class="modal__content">
+                    <label for="shop-item-edit-photo" class="form-label">Фото товара</label>
+                    <input
+                            type="file"
+                            id="shop-item-edit-photo"
+                            accept="image/*"
+                    >
+                    <input
+                            type="hidden"
+                            id="shop-item-edit-photo-url"
+                    >
+                    <div id="shop-item-edit-photo-preview" class="shop-item-photo-preview" hidden>
+                        <button
+                                type="button"
+                                id="shop-item-edit-photo-preview-clear"
+                                class="shop-item-photo-preview__clear"
+                                aria-label="Удалить фото"
+                        >
+                            ✕
+                        </button>
+                        <img alt="Превью фото товара">
+                    </div>
                 </div>
 
                 <div class="modal__content">
@@ -620,6 +759,35 @@
             </form>
         </div>
     </div>
+
+    <!-- Модалка просмотра фотографии товара -->
+    <div
+            id="shop-image-modal"
+            class="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-hidden="true"
+            hidden
+    >
+        <div class="modal__overlay"></div>
+        <div class="modal__dialog shop-image-modal__dialog" role="document">
+            <button
+                    type="button"
+                    class="modal__close"
+                    id="shop-image-modal-close"
+                    aria-label="Закрыть"
+            >
+                ✕
+            </button>
+            <img
+                    id="shop-image-modal-img"
+                    class="shop-image-modal__img"
+                    src=""
+                    alt=""
+            >
+        </div>
+    </div>
+
 
     <!-- Модалка редактирования сотрудника -->
     <div

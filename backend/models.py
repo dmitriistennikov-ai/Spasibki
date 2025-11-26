@@ -25,7 +25,6 @@ class BitrixAuth(Base):
     expires_at = Column(DateTime, default=lambda: datetime.utcnow() + timedelta(hours=1))
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    # связь с сотрудником (один-к-одному)
     employee = relationship(
         "Employee",
         back_populates="auth",
@@ -151,6 +150,10 @@ class GameResponse(BaseModel):
     class Config:
         from_attributes = True
 
+    @classmethod
+    def validate(cls, data):
+        return cls.model_validate(data)
+
 class GameUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
@@ -185,6 +188,7 @@ class Item(Base):
     price = Column(Integer, nullable=False)
     stock = Column(Integer, nullable=False, default=0)
     is_active = Column(Boolean, default=True)
+    photo_url = Column(String, nullable=True)
 
 class ItemCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100, description="Название товара")
@@ -192,6 +196,7 @@ class ItemCreate(BaseModel):
     price: int = Field(..., ge=0, le=100000000, description="Цена товара")
     stock: int = Field(default=0, ge=0, le=1000000, description="Количество на складе")
     is_active: bool = Field(default=True, description="Активен ли товар")
+    photo_url: Optional[str] = Field(None, max_length=500, description="URL изображения товара")
 
 class ItemUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=100, description="Название товара")
@@ -199,6 +204,7 @@ class ItemUpdate(BaseModel):
     price: Optional[int] = Field(None, ge=0, le=100000000, description="Цена товара")
     stock: Optional[int] = Field(None, ge=0, le=1000000, description="Количество на складе")
     is_active: Optional[bool] = Field(None, description="Активен ли товар")
+    photo_url: Optional[str] = Field(None, max_length=500, description="URL изображения товара")
 
 class ItemResponse(BaseModel):
     id: int
@@ -207,6 +213,7 @@ class ItemResponse(BaseModel):
     price: int
     stock: int
     is_active: bool
+    photo_url: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -11,6 +11,7 @@ from backend.api.items import router as items_router
 from backend.api.like import router as like_router
 from backend.api.likes_history import router as likes_history_router
 from backend.api.likes_info import router as likes_info_router
+from backend.api.purchase import router as purchase_router
 from backend.api.user import router as user_router
 from backend.api.users import router as users_router
 from backend.scripts.database import Base, engine, SessionLocal
@@ -30,6 +31,7 @@ app.include_router(games_router)
 app.include_router(likes_info_router)
 app.include_router(likes_history_router)
 app.include_router(items_router)
+app.include_router(purchase_router)
 
 # Base.metadata.drop_all(engine)
 Base.metadata.create_all(bind=engine)
@@ -37,6 +39,10 @@ Base.metadata.create_all(bind=engine)
 BASE_DIR = Path(__file__).resolve().parent
 FRONTEND_DIR = BASE_DIR.parent / "frontend"
 app.mount("/frontend", StaticFiles(directory=str(FRONTEND_DIR)), name="frontend")
+
+STATIC_DIR = BASE_DIR.parent / "static"
+STATIC_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 @app.post("/")
 async def root(request: Request):

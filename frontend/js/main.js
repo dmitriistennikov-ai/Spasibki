@@ -84,6 +84,8 @@ async function loadCurrentUser() {
                 }
             }
         }
+        initPurchasesHistory();
+        loadPurchasesHistory();
     }   catch (e) {
         console.error(e);
         toast(e.message || 'Ошибка загрузки сотрудника');
@@ -108,33 +110,109 @@ async function fetchLikesInfo(bitrixId) {
         } catch (_) {}
         throw new Error(msg);
     }
-    return res.json(); // { received_likes, remaining_likes, game_name, game_id, has_active_game }
+    return res.json();
 }
 
 
 async function openThanksModal() {
     const modal = document.getElementById('thanks-modal');
     const select = modal?.querySelector('#thanks-to');
-    if(!modal||!select) return;
+    const dropdown = modal?.querySelector('#thanks-to-dropdown');
+    const trigger = dropdown?.querySelector('.thanks-to-dropdown__trigger');
+    const list = dropdown?.querySelector('.thanks-to-dropdown__list');
 
-    select.innerHTML='<option value="" disabled selected>Загрузка…</option>';
+    if (!modal || !select || !dropdown || !trigger || !list) return;
+
+    select.innerHTML = '<option value="" disabled selected>Загрузка…</option>';
+    trigger.textContent = 'Загрузка…';
+    trigger.setAttribute('aria-expanded', 'false');
+    list.hidden = true;
+    list.innerHTML = '';
+
     const userId = getCurrentUserId();
+
     try {
         const users = await fetchUsers();
-        const opts = ['<option value="" disabled selected>Выберите сотрудника…</option>'].concat(
-            users.map(u => {
-                const label = [u.name, u.lastname].filter(Boolean).join(' ');
-                const dis = userId && String(u.bitrix_id) === String(userId) ? ' disabled' : '';
-                return `<option value="${u.bitrix_id}"${dis}>${label}</option>`;
-            })
-        );
-        select.innerHTML = opts.join('');
-    } catch(e) {
+
+        const selectOptions = ['<option value="" disabled selected>Выберите сотрудника…</option>']
+            .concat(
+                users.map(u => {
+                    const label = [u.name, u.lastname].filter(Boolean).join(' ');
+                    const dis = userId && String(u.bitrix_id) === String(userId) ? ' disabled' : '';
+                    return `<option value="${u.bitrix_id}"${dis}>${label}</option>`;
+                })
+            );
+        select.innerHTML = selectOptions.join('');
+
+        list.innerHTML = users.map(u => {
+            const fullName = [u.name, u.lastname].filter(Boolean).join(' ');
+            const isDisabled = userId && String(u.bitrix_id) === String(userId);
+            const disabledClass = isDisabled ? ' thanks-to-dropdown__item--disabled' : '';
+            const photoSrc = u.photo_url || ''; // если нет фото — можно показать заглушку через background или иконку
+
+            return `
+                <li
+                    class="thanks-to-dropdown__item${disabledClass}"
+                    role="option"
+                    data-id="${u.bitrix_id}"
+                    aria-disabled="${isDisabled ? 'true' : 'false'}"
+                >
+                    <span class="thanks-to-dropdown__avatar">
+                        ${photoSrc ? `<img src="${photoSrc}" alt="">` : ''}
+                    </span>
+                    <span class="thanks-to-dropdown__name">${fullName}</span>
+                </li>
+            `;
+        }).join('');
+
+        trigger.textContent = 'Выберите сотрудника…';
+
+        if (!trigger.dataset.dropdownInit) {
+            trigger.addEventListener('click', () => {
+                const isOpen = !list.hidden;
+                list.hidden = isOpen;
+                trigger.setAttribute('aria-expanded', String(!isOpen));
+            });
+
+            list.addEventListener('click', (event) => {
+                const item = event.target.closest('.thanks-to-dropdown__item');
+                if (!item) return;
+
+                const isDisabled = item.classList.contains('thanks-to-dropdown__item--disabled');
+                if (isDisabled) return;
+
+                const id = item.dataset.id;
+                const nameEl = item.querySelector('.thanks-to-dropdown__name');
+                const label = nameEl ? nameEl.textContent : '';
+
+                select.value = id;
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+
+                trigger.textContent = label;
+                list.hidden = true;
+                trigger.setAttribute('aria-expanded', 'false');
+            });
+
+            document.addEventListener('click', (event) => {
+                if (!modal.contains(event.target)) return;
+                if (!dropdown.contains(event.target)) {
+                    list.hidden = true;
+                    trigger.setAttribute('aria-expanded', 'false');
+                }
+            });
+
+            trigger.dataset.dropdownInit = '1';
+        }
+
+    } catch (e) {
         console.error(e);
         toast(e.message || 'Ошибка загрузки сотрудников');
+        trigger.textContent = 'Ошибка загрузки';
+        list.hidden = true;
     }
-    modal.hidden=false;
-    modal.setAttribute('aria-hidden','false');
+
+    modal.hidden = false;
+    modal.setAttribute('aria-hidden', 'false');
 }
 
 
@@ -186,56 +264,53 @@ async function submitThanks(e) {
 }
 
 
+let currentLikesPage = 1;
 let likesHistoryRows = [];
 let likesFilter = null;
-let likesHistoryLimit = 10;
+let likesHistoryLimit = 5;
 let likesHistoryHasMore = true;
 
 
 async function loadLikesHistory(limit = likesHistoryLimit, offset = 0, { append = false } = {}) {
-  try {
-    const userId = getCurrentUserId();
-    if (!userId) return;
+    try {
+        const userId = getCurrentUserId();
+        if (!userId) return;
 
-    const res = await fetch(
-      `/api/user/${encodeURIComponent(userId)}/likes?limit=${limit}&offset=${offset}`
-    );
-    if (!res.ok) throw new Error(`Не удалось загрузить историю (${res.status})`);
+        const res = await fetch(
+            `/api/user/${encodeURIComponent(userId)}/likes?limit=${limit}&offset=${offset}`
+        );
+        if (!res.ok) throw new Error(`Не удалось загрузить историю (${res.status})`);
 
-    const chunk = await res.json(); // массив LikeHistoryResponse
+        const { likes, total_pages } = await res.json();
 
-    if (!append) {
-      likesHistoryRows = chunk;
-    } else {
-      likesHistoryRows = likesHistoryRows.concat(chunk);
+        if (!append) {
+            likesHistoryRows = likes;
+        } else {
+            likesHistoryRows = likesHistoryRows.concat(likes);
+        }
+
+        likesHistoryHasMore = currentLikesPage < total_pages;
+
+        applyLikesFilter();
+        updateLikesHistoryPager(total_pages);
+    } catch (e) {
+        console.error(e);
+        likesHistoryRows = [];
+        applyLikesFilter();
+        toast(e.message || 'Ошибка загрузки истории');
     }
-
-    // если вернулось меньше, чем limit — дальше страниц нет
-    likesHistoryHasMore = chunk.length === limit;
-
-    applyLikesFilter();      // фильтрация по типу и рендер
-    updateLikesHistoryPager(); // показать/спрятать кнопку "Показать ещё"
-  } catch (e) {
-    console.error(e);
-    likesHistoryRows = [];
-    applyLikesFilter(); // чтобы отрисовать пустую таблицу с заглушкой
-    toast(e.message || 'Ошибка загрузки истории');
-  }
 }
 
 
-function updateLikesHistoryPager() {
-  const btn = document.getElementById('likes-history-load-more');
-  if (!btn) return;
+function updateLikesHistoryPager(totalPages) {
+    const prevButton = document.getElementById('likes-history-prev-page-btn');
+    const nextButton = document.getElementById('likes-history-next-page-btn');
+    const currentPageSpan = document.getElementById('likes-history-current-page');
 
-  // если истории нет вообще — прячем
-  if (!likesHistoryRows.length) {
-    btn.hidden = true;
-    return;
-  }
+    currentPageSpan.textContent = `Страница ${currentLikesPage}`;
 
-  // если сервер вернул меньше limit — следующей страницы нет
-  btn.hidden = !likesHistoryHasMore;
+    prevButton.disabled = currentLikesPage === 1;
+    nextButton.disabled = currentLikesPage === totalPages || likesHistoryRows.length === 0;
 }
 
 
@@ -314,26 +389,42 @@ function esc(s) {
 let gamesLoaded = false;
 let currentActiveGame = null;
 let finishedGames = [];
+let currentPage = 1;
+const itemsPerPage = 5;
+
+
+function updatePagination(totalPages) {
+    const prevButton = document.getElementById('prev-page-btn');
+    const nextButton = document.getElementById('next-page-btn');
+    const currentPageSpan = document.getElementById('current-page');
+
+    currentPageSpan.textContent = `Страница ${currentPage}`;
+
+    prevButton.disabled = currentPage === 1;
+    nextButton.disabled = currentPage === totalPages;
+}
 
 
 async function loadGames() {
     try {
         const [activeRes, finishedRes] = await Promise.all([
-            fetch('/api/games?is_active=true'),
-            fetch('/api/games?is_active=false'),
+            fetch(`/api/games?is_active=true&page=${currentPage}&limit=${itemsPerPage}`),
+            fetch(`/api/games?is_active=false&page=${currentPage}&limit=${itemsPerPage}`)
         ]);
         if (!activeRes.ok) throw new Error(`Не удалось загрузить активную игру (${activeRes.status})`);
         if (!finishedRes.ok) throw new Error(`Не удалось загрузить завершённые игры (${finishedRes.status})`);
-//        console.log('Активные игры:', activeRes);
-//        console.log('Завершенные игры:', finishedRes);
+
         const activeGames = await activeRes.json();
         const finishedGamesData = await finishedRes.json();
-//        console.log('Активные игры:', activeGames);
-//        console.log('Завершенные игры:', finishedGamesData);
+
         currentActiveGame = activeGames[0] || null;
-        finishedGames = finishedGamesData;
-        await renderActiveGame(activeGames);
-        renderFinishedGames(finishedGamesData);
+        finishedGames = finishedGamesData.games;
+        const totalPages = finishedGamesData.total_pages;
+
+        await renderActiveGame(activeGames.games);
+        renderFinishedGames(finishedGamesData.games);
+
+        updatePagination(totalPages);
     } catch (e) {
         console.error(e);
         toast(e.message || 'Ошибка загрузки игр');
@@ -345,7 +436,6 @@ async function loadGames() {
 
 function openGameModalForGame(game, { isActive = false } = {}) {
     if (!game) return;
-
     const modal = document.getElementById('game-modal');
     if (!modal) return;
 
@@ -400,43 +490,48 @@ function closeGameModal() {
 }
 
 
-async function refreshGameLikesInfo() {
-    const receivedEl = document.getElementById('game-thanks-received');
-    const limitEl    = document.getElementById('game-thanks-limit');
-    if (!receivedEl || !limitEl) return;
-
-    const userId = getCurrentUserId();
-    if (!userId) {
-        receivedEl.textContent = 'Получено Спасибок в текущей игре: —';
-        limitEl.textContent    = 'Остаток Спасибок в текущей игре: —';
-        return;
-    }
-
-    try {
-        const likesInfo = await fetchLikesInfo(userId);
-        receivedEl.textContent =
-            `Получено Спасибок в текущей игре: ${likesInfo.received_likes ?? 0}`;
-        limitEl.textContent =
-            `Остаток Спасибок в текущей игре: ${likesInfo.remaining_likes ?? 0}`;
-    } catch (e) {
-        console.error(e);
-    }
-}
+//async function refreshGameLikesInfo() {
+//    const container = document.getElementById('game-stats-container');
+//    if (!container) return;
+//
+//    container.hidden = true;
+//
+//    const userId = getCurrentUserId();
+//    if (!userId) return;
+//
+//    try {
+//        const likesInfo = await fetchLikesInfo(userId);
+//
+//        if (likesInfo && likesInfo.received_likes !== null && likesInfo.received_likes !== undefined) {
+//            document.getElementById('game-thanks-received').textContent =
+//                `Получено Спасибок в текущей игре: ${likesInfo.received_likes ?? 0}`;
+//            document.getElementById('game-thanks-limit').textContent =
+//                `Остаток Спасибок в текущей игре: ${likesInfo.remaining_likes ?? 0}`;
+//
+//            container.hidden = false;
+//        }
+//    } catch (e) {
+//        console.error(e);
+//    }
+//}
 
 
 async function renderActiveGame(rows) {
     const link       = document.getElementById('active-game-link');
     const empty      = document.getElementById('active-game-empty');
+
+    const statsContainer = document.getElementById('game-stats-container');
     const receivedEl = document.getElementById('game-thanks-received');
     const limitEl    = document.getElementById('game-thanks-limit');
 
-    if (!link || !empty || !receivedEl || !limitEl) return;
+    if (!link || !empty || !receivedEl || !limitEl || !statsContainer) return;
 
     if (!rows || !rows.length) {
         currentActiveGame = null;
         link.hidden = true;
         link.textContent = '';
         empty.hidden = false;
+        statsContainer.hidden = true;
 
         receivedEl.textContent = 'Получено Спасибок в текущей игре: —';
         limitEl.textContent    = 'Остаток Спасибок в текущей игре: —';
@@ -449,6 +544,7 @@ async function renderActiveGame(rows) {
     link.textContent = g.name || 'Без названия';
     link.hidden = false;
     empty.hidden = true;
+    statsContainer.hidden = false;
 
     receivedEl.textContent = 'Получено Спасибок в текущей игре: …';
     limitEl.textContent    = 'Остаток Спасибок в текущей игре: …';
@@ -462,10 +558,12 @@ async function renderActiveGame(rows) {
 
     try {
         const likesInfo = await fetchLikesInfo(userId);
+
         receivedEl.textContent =
             `Получено Спасибок в текущей игре: ${likesInfo.received_likes ?? 0}`;
         limitEl.textContent =
             `Остаток Спасибок в текущей игре: ${likesInfo.remaining_likes ?? 0}`;
+
     } catch (e) {
         console.error(e);
         toast(e.message || 'Не удалось получить информацию о Спасибках');
@@ -519,13 +617,19 @@ async function loadGameRatingById(gameId) {
 }
 
 
-function renderGameRating(rows) {
-    const root = document.getElementById('game-modal-rating');
+function renderGameRating(rows, containerId = 'game-modal-rating') {
+    const root = document.getElementById(containerId); // Используем переданный ID
     if (!root) return;
+
+    const emptyMessage = containerId === 'overall-rating-container'
+        ? 'В общем рейтинге ещё нет Спасибок'
+        : 'В этой игре ещё нет Спасибок';
+
     if (!rows || !rows.length) {
-        root.innerHTML = '<p class="game-rating__empty">В этой игре ещё нет Спасибок</p>';
+        root.innerHTML = `<p class="game-rating__empty">${emptyMessage}</p>`;
         return;
     }
+
     const header = `
         <div class="game-rating__header">
             <span class="game-rating__col game-rating__col--index">№</span>
@@ -535,14 +639,24 @@ function renderGameRating(rows) {
         </div>
     `;
 
-    const items = rows.map((row, idx) => `
-        <li class="game-rating__item">
-            <span class="game-rating__index">${idx + 1}</span>
-            <span class="game-rating__name">${esc(row.fio || '—')}</span>
-            <span class="game-rating__badge game-rating__badge--received">${row.received}</span>
-            <span class="game-rating__badge game-rating__badge--sent">${row.sent}</span>
-        </li>
-    `).join('');
+    const items = rows.map((row, idx) => {
+        const fio = row.fio || '—';
+        const avatarHtml = row.photo_url
+            ? `<span class="game-rating__avatar"><img src="${row.photo_url}" alt=""></span>`
+            : '';
+
+        return `
+            <li class="game-rating__item">
+                <span class="game-rating__index">${idx + 1}</span>
+                <span class="game-rating__name">
+                    ${avatarHtml}
+                    <span class="game-rating__fio">${esc(fio)}</span>
+                </span>
+                <span class="game-rating__badge game-rating__badge--received">${row.received}</span>
+                <span class="game-rating__badge game-rating__badge--sent">${row.sent}</span>
+            </li>
+        `;
+    }).join('');
 
     root.innerHTML = `
         ${header}
@@ -550,6 +664,56 @@ function renderGameRating(rows) {
             ${items}
         </ol>
     `;
+}
+
+
+let overallRatingPage = 1;
+const overallRatingLimit = 5;
+let overallRatingTotalPages = 1;
+
+
+async function loadOverallRating(page = overallRatingPage) {
+    const containerId = 'overall-rating-container';
+    const root = document.getElementById(containerId);
+
+    const prevBtn = document.getElementById('overall-rating-prev-btn');
+    const nextBtn = document.getElementById('overall-rating-next-btn');
+    const pageSpan = document.getElementById('overall-rating-current-page');
+
+    if (!root || !prevBtn || !nextBtn || !pageSpan) return;
+
+    overallRatingPage = page;
+
+    root.innerHTML = '<p class="game-rating__loading">Загружаем общий рейтинг…</p>';
+
+    try {
+        const res = await fetch(
+            `/api/rating/overall?page=${overallRatingPage}&limit=${overallRatingLimit}`
+        );
+
+        if (!res.ok) {
+            throw new Error(`Не удалось загрузить общий рейтинг (${res.status})`);
+        }
+
+        const data = await res.json();
+        const rows = data.rating;
+        overallRatingTotalPages = data.total_pages;
+
+        renderGameRating(rows, containerId);
+
+        pageSpan.textContent = `Страница ${overallRatingPage}`;
+
+        prevBtn.disabled = overallRatingPage <= 1;
+        nextBtn.disabled = overallRatingPage >= overallRatingTotalPages;
+
+    } catch (e) {
+        console.error(e);
+        root.innerHTML = '<p class="game-rating__error">Ошибка загрузки общего рейтинга</p>';
+
+        pageSpan.textContent = 'Страница —';
+        prevBtn.disabled = true;
+        nextBtn.disabled = true;
+    }
 }
 
 
@@ -608,7 +772,15 @@ function renderShopItems(items) {
     root.innerHTML = items.map(item => `
         <article class="shop-card" data-item-id="${item.id}">
             <div class="shop-card__media">
-                <div class="shop-card__image-placeholder" aria-hidden="true">🎁</div>
+                ${
+                    item.photo_url
+                        ? `<img
+                                src="${esc(item.photo_url)}"
+                                alt="${esc(item.name ?? 'Товар')}"
+                                class="shop-card__image"
+                           >`
+                        : `<div class="shop-card__image-placeholder" aria-hidden="true">🎁</div>`
+                }
             </div>
             <div class="shop-card__info">
                 <h3 class="shop-card__title">${esc(item.name ?? 'Без названия')}</h3>
@@ -658,6 +830,48 @@ async function loadShopItems() {
         toast(e.message || 'Ошибка загрузки товаров');
         root.innerHTML = '<p class="shop-empty">Не удалось загрузить товары</p>';
     }
+}
+
+
+function initShopImageModal() {
+    const modal = document.getElementById('shop-image-modal');
+    const modalImg = document.getElementById('shop-image-modal-img');
+    const closeBtn = document.getElementById('shop-image-modal-close');
+    const overlay = modal?.querySelector('.modal__overlay');
+    const shopRoot = document.getElementById('shop-items');
+
+    if (!modal || !modalImg || !shopRoot) return;
+
+    const open = (src, alt) => {
+        modalImg.src = src;
+        modalImg.alt = alt || '';
+        modal.hidden = false;
+        modal.setAttribute('aria-hidden', 'false');
+    };
+
+    const close = () => {
+        modal.hidden = true;
+        modal.setAttribute('aria-hidden', 'true');
+        modalImg.removeAttribute('src');
+        modalImg.alt = '';
+    };
+
+    shopRoot.addEventListener('click', (e) => {
+        const img = e.target.closest('.shop-card__image');
+        if (!img) return;
+
+        e.preventDefault();
+        open(img.src, img.alt || '');
+    });
+
+    closeBtn?.addEventListener('click', close);
+    overlay?.addEventListener('click', close);
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !modal.hidden) {
+            close();
+        }
+    });
 }
 
 
@@ -894,11 +1108,6 @@ function initSettingsNav() {
             if (createShopBtn) createShopBtn.hidden = true;
             if (updateEmployeesBtn) updateEmployeesBtn.hidden = false;
 
-//            bodyEl.innerHTML = `
-//                <p class="placeholder">
-//                    Нажмите «Обновить сотрудников», чтобы загрузить список из Bitrix24.
-//                </p>
-//            `;
             bodyEl.innerHTML = '<p class="placeholder">Загружаем сотрудников…</p>';
             try {
                 await reloadSettingsEmployees();
@@ -908,9 +1117,7 @@ function initSettingsNav() {
         }
     });
 
-    // Делегирование кликов по шестерёнке и корзине
     settingsContent.addEventListener('click', async (event) => {
-    // --- Игры ---
     const gameEditBtn = event.target.closest('.settings-game-edit-btn');
     if (gameEditBtn) {
         const id = Number(gameEditBtn.dataset.gameId);
@@ -934,7 +1141,6 @@ function initSettingsNav() {
         return;
     }
 
-    // --- Товары магазина ---
     const itemEditBtn = event.target.closest('.settings-item-edit-btn');
     if (itemEditBtn) {
         const id = Number(itemEditBtn.dataset.itemId);
@@ -1054,7 +1260,7 @@ async function submitGameEditForm(e) {
     if (description) payload.description = description;
 
     const start = startEl?.value;
-    if (start) payload.game_start = start; // "YYYY-MM-DD" — FastAPI нормально это съест
+    if (start) payload.game_start = start;
 
     const end = endEl?.value;
     if (end) payload.game_end = end;
@@ -1066,7 +1272,7 @@ async function submitGameEditForm(e) {
     if (limitToOne) payload.setting_limitToOneUser = Number(limitToOne);
 
     const limitParam = limitParamEl?.value;
-    if (limitParam) payload.setting_limitParameter = limitParam; // "day" | "week" | "month" | "game"
+    if (limitParam) payload.setting_limitParameter = limitParam;
 
     if (isActiveEl) {
         payload.game_is_active = isActiveEl.checked;
@@ -1097,7 +1303,6 @@ async function submitGameEditForm(e) {
 
         const updated = await res.json();
 
-        // Обновляем кэш settingsGames
         const idx = settingsGames.findIndex((g) => g.id === updated.id);
         if (idx !== -1) {
             settingsGames[idx] = updated;
@@ -1179,7 +1384,7 @@ async function submitGameCreateForm(e) {
     if (description) payload.description = description;
 
     const start = startEl?.value;
-    if (start) payload.game_start = start; // "YYYY-MM-DD"
+    if (start) payload.game_start = start;
 
     const end = endEl?.value;
     if (end) payload.game_end = end;
@@ -1191,7 +1396,7 @@ async function submitGameCreateForm(e) {
     if (limitToOne) payload.setting_limitToOneUser = Number(limitToOne);
 
     const limitParam = limitParamEl?.value;
-    if (limitParam) payload.setting_limitParameter = limitParam; // "day" | "week" | "month" | "game"
+    if (limitParam) payload.setting_limitParameter = limitParam;
 
     if (isActiveEl) {
         payload.game_is_active = Boolean(isActiveEl.checked);
@@ -1217,7 +1422,6 @@ async function submitGameCreateForm(e) {
                 const data = await res.json();
                 if (data?.detail) msg = data.detail;
             } catch (err) {
-                // ignore
             }
             throw new Error(msg);
         }
@@ -1251,6 +1455,59 @@ function openShopItemCreateModal() {
         activeCheckbox.checked = true;
     }
 
+    const fileInput = modal.querySelector('#shop-item-create-photo');
+    const photoUrlInput = modal.querySelector('#shop-item-create-photo-url');
+    const preview = modal.querySelector('#shop-item-create-photo-preview');
+    const previewImg = preview?.querySelector('img');
+    const clearBtn = modal.querySelector('#shop-item-create-photo-preview-clear');
+
+    const resetPhoto = () => {
+        if (fileInput) fileInput.value = '';
+        if (photoUrlInput) photoUrlInput.value = '';
+        if (previewImg) previewImg.removeAttribute('src');
+        if (preview) preview.hidden = true;
+    };
+
+    resetPhoto();
+
+    if (fileInput && !fileInput.dataset.uploadInit) {
+        fileInput.addEventListener('change', async () => {
+            const file = fileInput.files && fileInput.files[0];
+            if (!file) {
+                resetPhoto();
+                return;
+            }
+
+            try {
+                const url = await uploadShopItemImage(file);
+
+                if (photoUrlInput) {
+                    photoUrlInput.value = url;
+                }
+
+                if (preview && previewImg) {
+                    previewImg.src = url;
+                    preview.hidden = false;
+                }
+
+                toast('Фото загружено');
+            } catch (err) {
+                console.error(err);
+                toast(err.message || 'Не удалось загрузить фото');
+                resetPhoto();
+            }
+        });
+
+        fileInput.dataset.uploadInit = '1';
+    }
+
+    if (clearBtn && !clearBtn.dataset.initClear) {
+        clearBtn.addEventListener('click', () => {
+            resetPhoto();
+        });
+        clearBtn.dataset.initClear = '1';
+    }
+
     modal.hidden = false;
     modal.setAttribute('aria-hidden', 'false');
 }
@@ -1282,6 +1539,34 @@ async function loadSettingsItems() {
         toast(err.message || 'Не удалось загрузить товары магазина');
         throw err;
     }
+}
+
+
+async function uploadShopItemImage(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const res = await fetch('/api/items/upload-image', {
+        method: 'POST',
+        body: formData,
+    });
+
+    if (!res.ok) {
+        let msg = `Ошибка загрузки фото (${res.status})`;
+        try {
+            const data = await res.json();
+            if (data?.detail) msg = data.detail;
+        } catch (_) {
+        }
+        throw new Error(msg);
+    }
+
+    const data = await res.json();
+    if (!data || !data.url) {
+        throw new Error('Сервер не вернул URL загруженного фото');
+    }
+
+    return data.url;
 }
 
 
@@ -1377,6 +1662,11 @@ async function submitShopItemCreateForm(e) {
         payload.price = Number(price);
     }
 
+    const photoUrlEl = form.querySelector('#shop-item-create-photo-url');
+    if (photoUrlEl && photoUrlEl.value) {
+        payload.photo_url = photoUrlEl.value;
+    }
+
     const stock = stockEl?.value;
     if (stock !== '' && stock != null) {
         payload.stock = Number(stock);
@@ -1413,8 +1703,6 @@ async function submitShopItemCreateForm(e) {
 
         toast('Товар создан');
         closeShopItemCreateModal();
-
-        // если мы сейчас во вкладке "Магазин" — обновим список
         await reloadSettingsItems();
     } catch (err) {
         console.error(err);
@@ -1440,7 +1728,6 @@ async function deleteItem(id) {
                 const data = await res.json();
                 if (data?.detail) msg = data.detail;
             } catch (_) {
-                // ignore
             }
             throw new Error(msg);
         }
@@ -1470,6 +1757,9 @@ function openShopItemEditModal(item) {
     const priceEl = modal.querySelector('#shop-item-edit-price');
     const stockEl = modal.querySelector('#shop-item-edit-stock');
     const activeEl = modal.querySelector('#shop-item-edit-is-active');
+    const photoUrlEl = modal.querySelector('#shop-item-edit-photo-url');
+    const photoPreviewEl = modal.querySelector('#shop-item-edit-photo-preview');
+    const photoImgEl = photoPreviewEl?.querySelector('img');
 
     if (nameEl) nameEl.value = item.name ?? '';
     if (descEl) descEl.value = item.description ?? '';
@@ -1477,9 +1767,52 @@ function openShopItemEditModal(item) {
     if (stockEl) stockEl.value = item.stock != null ? String(item.stock) : '';
     if (activeEl) activeEl.checked = Boolean(item.is_active);
 
+    if (item.photo_url) {
+        if (photoUrlEl) photoUrlEl.value = item.photo_url;
+        if (photoImgEl) photoImgEl.src = item.photo_url;
+        photoPreviewEl.hidden = false;
+    } else {
+        photoPreviewEl.hidden = true;
+    }
+
+    const fileInput = modal.querySelector('#shop-item-edit-photo');
+    const clearBtn = modal.querySelector('#shop-item-edit-photo-preview-clear');
+
+    const resetPhoto = () => {
+        if (fileInput) fileInput.value = '';
+        if (photoUrlEl) photoUrlEl.value = '';
+        if (photoImgEl) photoImgEl.removeAttribute('src');
+        if (photoPreviewEl) photoPreviewEl.hidden = true;
+    };
+
+    if (clearBtn) {
+        clearBtn.addEventListener('click', resetPhoto);
+    }
+
+    if (fileInput) {
+        fileInput.addEventListener('change', async () => {
+            const file = fileInput.files && fileInput.files[0];
+            if (!file) return;
+
+            try {
+                const url = await uploadShopItemImage(file);
+
+                if (photoUrlEl) photoUrlEl.value = url;
+                if (photoImgEl) photoImgEl.src = url;
+
+                photoPreviewEl.hidden = false;
+            } catch (err) {
+                console.error(err);
+                toast(err.message || 'Не удалось загрузить фото');
+                resetPhoto();
+            }
+        });
+    }
+
     modal.hidden = false;
     modal.setAttribute('aria-hidden', 'false');
 }
+
 
 function closeShopItemEditModal() {
     const modal = document.getElementById('shop-item-edit-modal');
@@ -1514,7 +1847,6 @@ async function submitShopItemEditForm(e) {
 
     const description = descEl?.value.trim();
     if (description || description === '') {
-        // Пустую строку тоже считаем валидным описанием
         payload.description = description;
     }
 
@@ -1552,7 +1884,6 @@ async function submitShopItemEditForm(e) {
                 const data = await res.json();
                 if (data?.detail) msg = data.detail;
             } catch (_) {
-                // ignore
             }
             throw new Error(msg);
         }
@@ -1646,7 +1977,7 @@ async function loadSettingsEmployees(limit = settingsEmployeesLimit, offset = 0,
             throw new Error(`Не удалось загрузить сотрудников (${res.status})`);
         }
 
-        const chunk = await res.json(); // массив сотрудников
+        const chunk = await res.json();
 
         if (!append) {
             settingsEmployees = chunk;
@@ -1655,7 +1986,6 @@ async function loadSettingsEmployees(limit = settingsEmployeesLimit, offset = 0,
         }
 
         settingsEmployeesHasMore = chunk.length === limit;
-
         renderSettingsEmployees(settingsEmployees);
     } catch (err) {
         console.error(err);
@@ -1664,6 +1994,7 @@ async function loadSettingsEmployees(limit = settingsEmployeesLimit, offset = 0,
         toast(err.message || 'Ошибка загрузки сотрудников');
     }
 }
+
 
 async function reloadSettingsEmployees() {
     settingsEmployeesHasMore = true;
@@ -1688,10 +2019,18 @@ function renderSettingsEmployees(employees) {
         const isGamerLabel = u.is_gamer ? 'Да' : 'Нет';
         const isAdminLabel = u.is_admin ? 'Да' : 'Нет';
         const likes = (u.likes != null) ? Number(u.likes).toLocaleString('ru-RU') : '0';
+        const avatarHtml = `
+            <span class="settings-employee__avatar">
+                ${u.photo_url ? `<img src="${u.photo_url}" alt="">` : ''}
+            </span>
+        `;
 
         return `
             <tr>
-                <td>${esc(fullName)}</td>
+                <td class="settings-employee__name">
+                    ${avatarHtml}
+                    <span class="settings-employee__fio">${esc(fullName)}</span>
+                </td>
                 <td>${coins}</td>
                 <td>${esc(isGamerLabel)}</td>
                 <td>${esc(isAdminLabel)}</td>
@@ -1863,7 +2202,6 @@ async function submitEmployeeEditForm(e) {
 }
 
 
-// Инициализация подсказок по клику
 function initTooltips() {
     const tooltips = document.querySelectorAll('.stat-card__tooltip');
 
@@ -1874,17 +2212,14 @@ function initTooltips() {
             e.stopPropagation();
             const isActive = tooltip.classList.contains('active');
 
-            // Закрываем все остальные подсказки
             document.querySelectorAll('.stat-card__tooltip.active').forEach(t => {
                 if (t !== tooltip) t.classList.remove('active');
             });
 
-            // Переключаем текущую
             tooltip.classList.toggle('active', !isActive);
         });
     });
 
-    // Закрываем подсказки при клике вне
     document.addEventListener('click', () => {
         document.querySelectorAll('.stat-card__tooltip.active').forEach(tooltip => {
             tooltip.classList.remove('active');
@@ -1892,12 +2227,108 @@ function initTooltips() {
     });
 }
 
-/* ======================= Boot ======================= */
+
+let currentPurchasesPage = 1;
+let purchasesLimit = 5;
+let purchasesTotalPages = 1;
+
+
+async function loadPurchasesHistory() {
+    const userId = getCurrentUserId();
+    if (!userId) return;
+
+    const tbody = document.querySelector('#purchases-history tbody');
+    if (tbody) {
+    }
+
+    try {
+        const res = await fetch(
+            `/api/user/${encodeURIComponent(userId)}/purchases?page=${currentPurchasesPage}&limit=${purchasesLimit}`
+        );
+        if (!res.ok) throw new Error(`Не удалось загрузить покупки (${res.status})`);
+
+        const data = await res.json();
+
+        purchasesTotalPages = data.total_pages;
+        renderPurchasesHistory(data.purchases);
+        updatePurchasesPagination();
+
+    } catch (e) {
+        console.error(e);
+        if (tbody) {
+            tbody.innerHTML = `<tr><td class="table__empty" colspan="3">Ошибка загрузки истории</td></tr>`;
+        }
+    } finally {
+        if (tbody) tbody.style.opacity = '1';
+    }
+}
+
+
+function renderPurchasesHistory(rows) {
+    const tbody = document.querySelector('#purchases-history tbody');
+    if (!tbody) return;
+
+    if (!rows || !rows.length) {
+        tbody.innerHTML = `<tr><td class="table__empty" colspan="3">Покупок пока нет</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = rows.map(r => {
+        const date = esc(fmtDate(r.created_at));
+        const price = Number(r.amount_spent).toLocaleString('ru-RU');
+
+        return `
+            <tr>
+                <td>${date}</td>
+                <td>${esc(r.item_name)}</td>
+                <td>${price}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+
+function updatePurchasesPagination() {
+    const prevBtn = document.getElementById('purchases-prev-btn');
+    const nextBtn = document.getElementById('purchases-next-btn');
+    const pageLabel = document.getElementById('purchases-current-page');
+
+    if (pageLabel) pageLabel.textContent = `Страница ${currentPurchasesPage}`;
+
+    if (prevBtn) prevBtn.disabled = currentPurchasesPage === 1;
+    if (nextBtn) nextBtn.disabled = currentPurchasesPage >= purchasesTotalPages; // или ===, но >= надежнее
+}
+
+
+function initPurchasesHistory() {
+    const prevBtn = document.getElementById('purchases-prev-btn');
+    const nextBtn = document.getElementById('purchases-next-btn');
+
+    if (prevBtn) {
+        prevBtn.addEventListener('click', () => {
+            if (currentPurchasesPage > 1) {
+                currentPurchasesPage--;
+                loadPurchasesHistory();
+            }
+        });
+    }
+
+    if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+            if (currentPurchasesPage < purchasesTotalPages) {
+                currentPurchasesPage++;
+                loadPurchasesHistory();
+            }
+        });
+    }
+}
+
+
+
 document.addEventListener('DOMContentLoaded', () => {
     initTabs();
     loadCurrentUser();
     initLikesFilters();
-//    loadLikesHistory();
     reloadLikesHistory();
     document.getElementById('send-thanks-btn')?.addEventListener('click', openThanksModal);
     document.getElementById('send-thanks-btn-in-game')?.addEventListener('click', openThanksModal);
@@ -1908,10 +2339,16 @@ document.addEventListener('DOMContentLoaded', () => {
     modal?.querySelector('#thanks-form')?.addEventListener('submit', submitThanks);
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modal?.hidden) closeThanksModal(); });
     document.querySelector('.tabs__button[data-tab="game"]')?.addEventListener('click', () => {
-      if (!gamesLoaded) { gamesLoaded = true; loadGames(); }
+        if (!gamesLoaded) {
+            gamesLoaded = true;
+            loadGames();
+            loadOverallRating();
+        }
     });
     if (document.getElementById('game')?.classList.contains('tab-content--active')) {
-    gamesLoaded = true; loadGames();
+        gamesLoaded = true;
+        loadGames();
+        loadOverallRating();
     };
     document.getElementById('active-game-link')?.addEventListener('click', (e) => {
         e.preventDefault();
@@ -1992,7 +2429,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const gameCreateModal = document.getElementById('game-create-modal');
     if (gameCreateModal) {
-        // Кнопка "Создать игру" (статичная в HTML)
         const createGameBtn = document.getElementById('create-game-btn');
         createGameBtn?.addEventListener('click', openGameCreateModal);
 
@@ -2113,6 +2549,36 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     initTooltips();
+
+    initShopImageModal();
+
+    document.getElementById('prev-page-btn').addEventListener('click', () => {
+        if (currentPage > 1) {
+            currentPage--;
+            loadGames();
+        }
+    });
+
+    document.getElementById('next-page-btn').addEventListener('click', () => {
+        currentPage++;
+        loadGames();
+    });
+
+    document.getElementById('likes-history-prev-page-btn').addEventListener('click', () => {
+        if (currentLikesPage > 1) {
+            currentLikesPage--;
+            const offset = (currentLikesPage - 1) * likesHistoryLimit;
+            loadLikesHistory(likesHistoryLimit, offset);
+        }
+    });
+
+    document.getElementById('likes-history-next-page-btn').addEventListener('click', () => {
+        currentLikesPage++;
+        const offset = (currentLikesPage - 1) * likesHistoryLimit;
+        loadLikesHistory(likesHistoryLimit, offset);
+    });
+
+
 })
 
 

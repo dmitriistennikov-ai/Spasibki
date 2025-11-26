@@ -1,14 +1,21 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy.orm import Session
+import uuid
+from pathlib import Path
+from typing import List
+
+from fastapi import APIRouter, Depends, HTTPException, Response, status, UploadFile, File
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
+
 from backend.models import Item, ItemCreate, ItemUpdate, ItemResponse, BuyTransaction, BuyTransactionResponse, \
     BuyTransactionCreate, Employee
 from backend.scripts.database import get_db
-from typing import List
-from sqlalchemy import func, extract, and_
-
 
 router = APIRouter()
+
+BASE_DIR = Path(__file__).resolve().parents[2]
+STATIC_DIR = BASE_DIR / "static"
+ITEMS_UPLOAD_DIR = STATIC_DIR / "uploads" / "items"
+ITEMS_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 @router.get("/api/show-items", response_model=list[ItemResponse])
 async def get_show_items(db: Session = Depends(get_db)):
@@ -61,6 +68,7 @@ async def buy_item(item: BuyTransactionCreate, db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail="Ошибка при покупке")
+
 
 @router.post("/api/items", response_model=ItemResponse, status_code=status.HTTP_201_CREATED)
 def create_item(item: ItemCreate, db: Session = Depends(get_db)):
@@ -131,3 +139,37 @@ def delete_item(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Ошибка при удалении товара: {str(e)}")
+
+
+@router.post("/api/items/upload-image")
+async def upload_item_image(file: UploadFile = File(...)):
+    allowed_content_types = {
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "image/gif",
+    }
+
+    if file.content_type not in allowed_content_types:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Допустимы только изображения (jpeg, png, webp, gif)",
+        )
+
+    ext = Path(file.filename or "").suffix.lower() or ".jpg"
+    filename = f"{uuid.uuid4().hex}{ext}"
+    target_path = ITEMS_UPLOAD_DIR / filename
+
+    contents = await file.read()
+    try:
+        with open(target_path, "wb") as f:
+            f.write(contents)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Не удалось сохранить файл",
+        )
+
+    public_url = f"/static/uploads/items/{filename}"
+
+    return {"url": public_url}

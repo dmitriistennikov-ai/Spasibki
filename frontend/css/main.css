@@ -11,20 +11,34 @@
 }
 
 * { box-sizing: border-box; }
-html, body { height: 100%; }
-body {
-  margin: 0;
-  font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-  background-color: rgb(28 25 23);
-  color: var(--fg);
+
+html {
+    height: auto;
+    min-height: 100vh;
 }
 
-/* --- helpers --- */
+body {
+    min-height: 100vh;
+    margin: 0;
+    font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    background-color: rgb(28 25 23);
+    color: var(--fg);
+    overflow-y: auto;
+}
+
+
+@media (max-height: 600px) {
+    .modal__dialog {
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+}
+
+
 .container { width: min(1280px, 100% - 16px); margin-inline: auto; }
-.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 .placeholder { color: var(--muted); }
 
-/* --- header + tabs --- */
+
 .header { border-bottom: 1px solid var(--border); background-color: rgb(28 25 23); position: sticky; top: 0; z-index: 10; }
 .header__inner { display: flex; gap: 16px; align-items: center; height: 56px; }
 .brand { font-weight: 600; font-size: 1.5rem; letter-spacing: .4px; margin-left: auto; }
@@ -38,7 +52,7 @@ body {
 .tabs__button:hover { border-color: var(--primary); }
 .tabs__button--active { background: color-mix(in oklab, var(--primary) 18%, var(--surface-2)); border-color: var(--primary); }
 
-/* --- main --- */
+
 .main { padding-block: 16px; }
 .tab-content { display: none; }
 .tab-content--active { display: block; }
@@ -60,10 +74,10 @@ body {
 
 .user-info__profile {
     display: flex;
-    flex-direction: column; /* оставляем колонку */
-    align-items: flex-start; /* ← меняем на flex-start (левый край) */
+    flex-direction: column;
+    align-items: flex-start;
     margin-bottom: 0;
-    gap: 0.5rem; /* отступ между именем и аватаром */
+    gap: 0.5rem;
 }
 
 .user-info__avatar {
@@ -98,8 +112,8 @@ body {
 
 .user-info__details {
     color: white;
-    align-self: flex-start; /* выравниваем по верху */
-    margin-top: 0.5rem; /* небольшой отступ сверху для выравнивания */
+    align-self: flex-start;
+    margin-top: 0.5rem;
 }
 
 .user-info__name {
@@ -107,7 +121,6 @@ body {
     font-size: 1.1rem;
     line-height: 1.33;
     font-weight: 700;
-    /* order не нужен, так как в HTML имя уже первое */
 }
 
 .user-info__position {
@@ -127,7 +140,7 @@ body {
     margin-left: auto
 }
 .stat-card {
-    background: #44403c; /* bg-stone-700 */
+    background: #44403c;
     border-radius: 0.6rem;
     aspect-ratio: 1 / 1;
     padding: .5rem;
@@ -141,7 +154,7 @@ body {
     aspect-ratio:1/1
 }
 .stat-card__label {
-    color: #a8a29e; /* text-stone-400 */
+    color: #a8a29e;
     font-size: 0.875rem;
     margin: 0;
     line-height: 1.1;
@@ -154,31 +167,95 @@ body {
 }
 
 .stat-card__value--thanks {
-    color: #818cf8; /* text-indigo-400 */
+    color: #818cf8;
 }
 
 .stat-card__value--balance {
-    color: #fbbf24; /* text-amber-400 */
+    color: #fbbf24;
 }
-/* --- message bar (toasts-lite) --- */
+
 .message-bar {
   position: fixed; left: 16px; bottom: 16px; padding: 10px 12px; border-radius: 10px; background: var(--surface);
   border: 1px solid var(--border); color: var(--fg); opacity: 0; transform: translateY(8px); transition: .2s ease;
 }
 .message-bar.is-visible { opacity: 1; transform: translateY(0); }
 
-/* --- modal root --- */
 .modal[aria-hidden="true"] { display: none; }
-.modal { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; backdrop-filter: blur(2px); }
-.modal__overlay { position: absolute; inset: 0; background: rgba(0,0,0,.45); }
-.modal__dialog { position: relative; z-index: 1; width: min(640px, 100%); background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
-.modal__header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
-.modal__title { margin: 0; font-size: 16px; }
-.modal__close { appearance: none; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); color: var(--fg); padding: 6px 10px; cursor: pointer; }
-.modal__content { padding: 14px; }
-.modal__footer { padding: 12px 14px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
 
-/* --- basic buttons --- */
+.modal {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    backdrop-filter: blur(2px);
+}
+
+.modal__overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, .45);
+}
+
+.modal__dialog {
+    position: relative;
+    z-index: 1;
+    max-width: 90vw;
+    padding: 20px;
+    background: var(--surface);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    border-radius: 12px;
+    overflow-y: auto;
+}
+
+.modal__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+}
+
+.modal__title {
+    margin: 0;
+    font-size: 16px;
+}
+
+.modal__close {
+    appearance: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface-2);
+    color: var(--fg);
+    padding: 6px 10px;
+    cursor: pointer;
+}
+
+.modal__content { padding: 14px; }
+
+.modal__footer {
+    padding: 12px 14px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.modal__dialog {
+    max-width: 90vw;
+    padding: 20px;
+    background: var(--surface);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    border-radius: 12px;
+}
+
 .btn { appearance: none; border: 1px solid var(--border); background: var(--surface-2); color: var(--fg); padding: 8px 12px; border-radius: 8px; cursor: pointer; }
 .btn:hover { border-color: var(--primary); }
 .btn--primary { border-color: var(--primary); background: color-mix(in oklab, var(--primary) 24%, var(--surface-2)); }
@@ -189,17 +266,113 @@ body {
 #send-thanks-btn[disabled]{opacity:.6;cursor:not-allowed}
 #send-thanks-btn svg{width:20px;height:20px;margin-right:0;display:inline-block;line-height:0}
 
+.thanks-to-dropdown {
+    position: relative;
+    width: 100%;
+}
+
+.thanks-to-dropdown__trigger {
+    width: 100%;
+    padding: 8px 12px;
+    text-align: left;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--fg);
+    cursor: pointer;
+    font: inherit;
+}
+
+.thanks-to-dropdown__trigger:hover {
+    border-color: var(--primary);
+}
+
+.thanks-to-dropdown__list {
+    position: absolute;
+    left: 0;
+    right: 0;
+    max-height: 240px;
+    margin: 4px 0 0;
+    padding: 4px 0;
+    list-style: none;
+    background: var(--surface);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    overflow-y: auto;
+    z-index: 10;
+}
+
+.thanks-to-dropdown__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    cursor: pointer;
+}
+
+.thanks-to-dropdown__item:hover {
+    background: var(--surface-2);
+}
+
+.thanks-to-dropdown__item--disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.thanks-to-dropdown__avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.thanks-to-dropdown__avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.thanks-to-dropdown__name {
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+
+.thanks-recipient {
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.thanks-recipient__photo-wrapper {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.thanks-recipient__photo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
 #send-thanks-btn-in-game {
   display: flex;
-  margin-left: auto;              /* прижимаем к правому краю */
+  margin-left: auto;
   align-items: center;
   justify-content: center;
   gap: .5rem;
   font-weight: 700;
-  font-size: .9375rem;            /* чуть меньше, чем основная */
+  font-size: .9375rem;
   color: #fff;
   background: #4f46e5;
-  padding: .6rem 1.4rem;          /* компактнее отступы */
+  padding: .6rem 1.4rem;
   border: 0;
   border-radius: 9999px;
   cursor: pointer;
@@ -226,21 +399,19 @@ body {
 }
 
 #send-thanks-btn-in-game svg {
-  width: 18px;                    /* иконка тоже чуть меньше */
+  width: 18px;
   height: 18px;
   margin-right: 0;
   display: inline-block;
   line-height: 0;
 }
 
-/* ==== Thanks Modal: крупнее, читабельнее, аккуратные кнопки ==== */
 #thanks-modal .modal__dialog { width: min(720px, 100% - 32px); font-size: 16px; border-radius: 14px; }
 #thanks-modal .modal__header,
 #thanks-modal .modal__content,
 #thanks-modal .modal__footer { padding: 16px 18px; }
 #thanks-modal .modal__title { margin: 0; font-size: 20px; line-height: 1.3; font-weight: 800; }
 
-/* Поле выбора получателя — крупнее и удобнее */
 #thanks-modal label.form-label { display: inline-block; margin-bottom: 8px; font-weight: 600; }
 #thanks-modal select#thanks-to {
   width: 100%; height: 44px; padding: 0 12px;
@@ -249,7 +420,6 @@ body {
 }
 #thanks-modal select#thanks-to:focus { outline: none; box-shadow: 0 0 0 2px color-mix(in oklab, var(--primary) 40%, transparent); border-color: var(--primary); }
 
-/* Кнопки в модалке — крупнее и приятнее нажимать */
 #thanks-modal .btn {
   padding: 0.75rem 1.1rem; border-radius: 10px; font-weight: 700;
   border: 1px solid var(--border); background: var(--surface-2); color: var(--fg);
@@ -258,7 +428,6 @@ body {
 #thanks-modal .btn:hover { border-color: var(--primary); }
 #thanks-modal .btn:active { transform: translateY(1px); }
 
-/* Основная (синяя) кнопка — в цветах проекта */
 #thanks-modal .btn.btn--primary {
   border-color: var(--primary);
   background: color-mix(in oklab, var(--primary) 24%, var(--surface-2));
@@ -292,7 +461,7 @@ body {
   border-radius: 10px;
   background-color: #292524;
   overflow: auto;
-  margin-top: 8px; /* или 16px — как тебе визуально больше нравится */
+  margin-top: 8px;
 }
 .table{width:100%;border-collapse:collapse;min-width:640px}
 .table th,.table td{padding:10px 12px;border-top:1px solid var(--border);vertical-align:top}
@@ -307,7 +476,7 @@ body {
 .table-games.table-games--inline {
     display: flex;
     align-items: center;
-    gap: 12px;          /* небольшой отступ между элементами */
+    gap: 12px;
 }
 
 .table-games--inline {
@@ -321,7 +490,7 @@ body {
 
 .table-games__title {
   margin: 0;
-  margin-right: auto; /* уже есть — как раз будет выталкивать ссылку вправо */
+  margin-right: auto;
   font-size: 16px;
   line-height: 1.3;
   font-weight: 800;
@@ -343,7 +512,6 @@ body {
   color: var(--muted);
   font-size: 14px;
 }
-
 
 .game-rating {
   margin-top: 4px;
@@ -403,9 +571,32 @@ body {
 }
 
 .game-rating__name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.game-rating__fio {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.game-rating__avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--surface-2);
+}
+
+.game-rating__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .game-rating__badge {
@@ -436,7 +627,6 @@ body {
   color: var(--muted);
 }
 
-/* можно чуть подсветить топ-3 */
 .game-rating__item:nth-child(1) .game-rating__index,
 .game-rating__item:nth-child(2) .game-rating__index,
 .game-rating__item:nth-child(3) .game-rating__index {
@@ -444,10 +634,10 @@ body {
 }
 
 #game-modal .modal__dialog {
-  width: min(900px, 100% - 32px); /* было 640, стало примерно +40% */
+  width: min(900px, 100% - 32px);
   border-radius: 14px;
 }
-/* Одинаковая сетка для заголовка и строк рейтинга */
+
 .game-rating__header,
 .game-rating__item {
   display: grid;
@@ -456,7 +646,6 @@ body {
   align-items: center;
 }
 
-/* Общий базовый стиль — если ещё не было */
 .game-rating__list {
   list-style: none;
   margin: 0;
@@ -481,7 +670,6 @@ body {
   border-top: none;
 }
 
-/* Центруем числовые колонки по сетке */
 .game-rating__col--received,
 .game-rating__col--sent,
 .game-rating__badge {
@@ -502,12 +690,10 @@ body {
   margin: 0;
 }
 
-/* Номер и бейджи — табличные цифры, чтобы всё ровно стояло */
 .game-rating__index,
 .game-rating__badge {
   font-variant-numeric: tabular-nums;
 }
-
 
 @media (max-width: 480px) {
   #thanks-modal .modal__dialog { width: min(100%, 100% - 16px); font-size: 15px; }
@@ -567,23 +753,22 @@ body {
 
 /* Карточка товара */
 .shop-card {
-  display: flex;
-  flex-direction: column;
-  padding: 12px;
-  border-radius: 12px;
-  background: #292524;
-  border: 1px solid var(--border);
-  min-height: 200px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  width: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 12px;
+    border-radius: 12px;
+    background: #292524;
+    border: 1px solid var(--border);
+    min-height: 200px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    width: 100%;
 }
 
 .shop-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
 }
 
-/* Левая часть — картинка, ~60% */
 .shop-card__media {
   flex: 0 0 auto;
   height: 180px;
@@ -597,19 +782,18 @@ body {
 }
 
 .shop-card__image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+    background: var(--surface-2);
 }
 
-/* Заглушка, если картинки нет */
 .shop-card__image-placeholder {
   font-size: 4rem;
   opacity: 0.7;
 }
 
-/* Правая часть — текст и кнопка, ~40% */
 .shop-card__info {
   flex: 1;
   display: flex;
@@ -651,7 +835,6 @@ body {
   color: var(--muted);
 }
 
-/* Кнопка "Купить" — внизу правой части */
 .shop-card__buy {
   margin-top: 8px;
   width: 100%;
@@ -670,7 +853,24 @@ body {
   transform: none;
 }
 
-/* Адаптив: на узких экранах картинка сверху, текст снизу */
+.shop-image-modal__dialog {
+    max-width: 90vw;
+    max-height: 90vh;
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.shop-image-modal__img {
+    max-width: 100%;
+    max-height: 100%;
+    border-radius: 12px;
+    display: block;
+}
+
 @media (max-width: 1200px) {
   .shop-grid {
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -730,13 +930,11 @@ body {
   gap: 16px;
 }
 
-/* Левая колонка ~15% */
 .settings-sidebar {
   flex: 0 0 15%;
   max-width: 200px;
 }
 
-/* Правая колонка ~85% */
 .settings-content {
   flex: 1 1 85%;
   min-height: 240px;
@@ -775,7 +973,6 @@ body {
   background: color-mix(in oklab, var(--primary) 20%, var(--surface-2));
 }
 
-/* Адаптив: на узких экранах меню и контент идут столбиком */
 @media (max-width: 768px) {
   .settings-layout {
     flex-direction: column;
@@ -800,7 +997,6 @@ body {
   text-align: right;
 }
 
-/* Ряд из двух полей в модалке редактирования игры */
 .game-edit__row {
   display: flex;
   gap: 12px;
@@ -810,15 +1006,50 @@ body {
   flex: 1 1 0;
 }
 
+.settings-employee__name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.settings-employee__fio {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.settings-employee__avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    background: var(--surface-2);
+}
+
+.settings-employee__avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
 /* ==== Модалки игры и магазина: редактирование + создание ==== */
 #game-edit-modal .modal__dialog,
 #game-create-modal .modal__dialog,
 #shop-item-create-modal .modal__dialog,
 #shop-item-edit-modal .modal__dialog,
 #employee-edit-modal .modal__dialog {
-  width: min(720px, 100% - 32px);
-  font-size: 16px;
-  border-radius: 14px;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: 20px;
+    background: var(--surface);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    border-radius: 12px;
 }
 
 #game-edit-modal .modal__header,
@@ -869,6 +1100,7 @@ body {
 #game-create-modal textarea,
 #shop-item-create-modal input[type="text"],
 #shop-item-create-modal input[type="number"],
+#shop-item-create-modal input[type="file"],
 #shop-item-create-modal textarea,
 #shop-item-edit-modal input[type="text"],
 #shop-item-edit-modal input[type="number"],
@@ -985,6 +1217,44 @@ body {
   background: color-mix(in oklab, var(--primary) 32%, var(--surface-2));
 }
 
+.shop-item-photo-preview {
+    position: relative;
+    margin-top: 6px;
+    width: 120px;
+    height: 120px;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.shop-item-photo-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.shop-item-photo-preview__clear {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    font-size: 14px;
+    line-height: 1;
+}
+
+.shop-item-photo-preview__clear:hover {
+    background: rgba(0, 0, 0, 0.8);
+}
 /* Универсальные кнопки-иконки в таблицах (игры, товары, сотрудники) */
 .icon-btn {
   display: inline-flex;
@@ -1016,7 +1286,6 @@ body {
   color: #ff6b6b;
 }
 
-/* Hover/active эффекты */
 .icon-btn:hover {
   background: rgba(255, 255, 255, 0.06);
   transform: translateY(-1px);
@@ -1027,26 +1296,22 @@ body {
   opacity: 0.9;
 }
 
-/* Чтобы не ломали верстку в ячейке */
 .table-actions__cell .icon-btn {
   vertical-align: middle;
 }
 
-/* Убираем стили visited для ссылок в таблицах игр */
 .table a,
 .table a:visited {
     color: var(--fg);        /* тот же цвет, что и обычный текст */
     text-decoration: none;   /* если не нужно подчёркивание */
 }
 
-/* При наведении — можно оставить эффект */
 .table a:hover {
     color: var(--primary);
     text-decoration: underline;
 }
 
 /* Аннотация блоков Баланс и Спасибки */
-/* Стили для подсказок при наведении на блок (снизу) */
 .stat-card {
     position: relative;
     cursor: help;
@@ -1126,3 +1391,63 @@ body {
     transform: translateY(-2px);
 }
 
+/* --- Пагинация --- */
+/* Применяем стили и к классу pagination, и к конкретным ID блоков пагинации */
+.pagination,
+.history-pagination,
+#likes-history-pagination,
+#finished-games-pagination,
+#purchases-history-pagination {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+/* Кнопки пагинации */
+.pagination__btn {
+    padding: 5px 10px;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1;
+    background-color: var(--surface-2);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.pagination__btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    border-color: var(--border);
+}
+
+.pagination__btn:hover:not(:disabled) {
+    border-color: var(--primary);
+    color: var(--fg);
+}
+
+/* Текст "Страница ..." */
+#current-page,
+#likes-history-current-page,
+#purchases-current-page,
+.pagination span {
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 500;
+    margin: 0 4px;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Отступ для блока Общего рейтинга от предыдущих элементов */
+#overall-rating-block {
+  margin-top: 46px;
+}
+
+/* Переопределение конфликтов */
+[hidden] {
+    display: none !important;
+}

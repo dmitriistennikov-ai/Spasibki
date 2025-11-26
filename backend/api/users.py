@@ -1,12 +1,11 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from sqlalchemy.orm import Session
-from typing import List
-from backend.scripts.database import SessionLocal
-from backend.models import Employee, EmployeeUpdate,EmployeeShortResponse
+
+from backend.models import Employee, EmployeeUpdate, EmployeeShortResponse
+from backend.scripts.database import get_db
 from backend.services.bitrix_users import get_all_users as get_all_users_from_bitrix
 from backend.services.db_get_tokens import get_tokens
 from backend.services.db_save_employee import save_or_update_employees
-from backend.scripts.database import get_db
 from backend.services.employee_audit import build_employee_changes, log_employee_audit
 
 router = APIRouter()
@@ -44,6 +43,7 @@ async def get_all_users(
             "coins": user.coins,
             "is_gamer": user.is_gamer,
             "is_admin": user.is_admin,
+            "photo_url": user.photo_url
         }
         for user in users
     ]
