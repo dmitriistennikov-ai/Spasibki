@@ -14,6 +14,7 @@
             <nav class="tabs" role="tablist" aria-label="Основные разделы">
                 <button class="tabs__button tabs__button--active" role="tab" aria-selected="true" data-tab="my-page">Моя страница</button>
                 <button class="tabs__button" role="tab" aria-selected="false" data-tab="game">Игра</button>
+                <button class="tabs__button" role="tab" aria-selected="false" data-tab="live-feed">Лента</button>
                 <button class="tabs__button" role="tab" aria-selected="false" data-tab="shop">Магазин</button>
                 <button class="tabs__button" role="tab" aria-selected="false" data-tab="settings">Настройки</button>
             </nav>
@@ -52,7 +53,7 @@
 
             <section id="likes-history-block" aria-labelledby="likes-history-title">
                 <div class="table-actions">
-                    <h2 id="likes-history-title" class="table-actions__title">История Спасибок</h2>
+                    <h2 id="likes-history-title" class="table-actions__title">История ваших Спасибок</h2>
                     <button id="likes-filter-to-me"   class="btn btn--tiny" aria-pressed="false">Мне</button>
                     <button id="likes-filter-from-me" class="btn btn--tiny" aria-pressed="false">От меня</button>
                 </div>
@@ -64,6 +65,7 @@
                                 <th>От кого</th>
                                 <th>Кому</th>
                                 <th>Сообщение</th>
+                                <th>Стикер</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -196,6 +198,51 @@
             </section>
         </section>
 
+        <section id="live-feed" class="tab-content" role="tabpanel" aria-labelledby="tab-live-feed" hidden>
+            <h1 class="visually-hidden">Лента Спасибок</h1>
+            <section id="live-feed-thanks-block" aria-labelledby="live-feed-thanks-title">
+                <div class="table-actions">
+                    <h2 id="live-feed-thanks-title" class="table-actions__title">История всех Спасибок</h2>
+                </div>
+                <div class="table-wrap">
+                    <table id="live-feed-thanks" class="table">
+                        <thead>
+                        <tr>
+                            <th>Дата</th>
+                            <th>От кого</th>
+                            <th>Кому</th>
+                            <th>Сообщение</th>
+                            <th>Стикер</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr>
+                            <td class="table__empty" colspan="4">Загрузка…</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div id="live-feed-thanks-pagination" class="history-pagination">
+                    <button
+                            type="button"
+                            id="live-feed-thanks-prev-page-btn"
+                            class="pagination__btn"
+                            disabled
+                    >
+                        Предыдущая
+                    </button>
+                    <span id="live-feed-thanks-current-page">Страница 1</span>
+                    <button
+                            type="button"
+                            id="live-feed-thanks-next-page-btn"
+                            class="pagination__btn"
+                    >
+                        Следующая
+                    </button>
+                </div>
+            </section>
+        </section>
+
         <section id="shop" class="tab-content" role="tabpanel" aria-labelledby="tab-shop" hidden>
             <h1 class="visually-hidden">Магазин</h1>
 
@@ -235,6 +282,13 @@
                         data-settings-section="employees"
                     >
                         Сотрудники
+                    </button>
+                    <button
+                            type="button"
+                            class="settings-nav__button"
+                            data-settings-section="purchases"
+                    >
+                        Покупки
                     </button>
                 </nav>
 
@@ -328,6 +382,28 @@
                     <label for="thanks-message" class="form-label">Сообщение</label>
                     <textarea id="thanks-message" name="message" rows="4" placeholder="Напишите пару слов…" maxlength="280"></textarea>
                 </div>
+                <div class="modal__content">
+                    <div class="modal__form-group">
+                        <label for="selected-sticker-id" class="form-label">Стикер</label>
+
+                        <div class="sticker-selector">
+                            <button
+                                    type="button"
+                                    class="sticker-selector__toggle"
+                                    id="sticker-selector-toggle"
+                                    aria-haspopup="true"
+                                    aria-expanded="false"
+                            >
+                                Выберите стикер
+                            </button>
+
+                            <div id="sticker-selector" class="sticker-selector-grid" hidden></div>
+
+                            <input type="hidden" id="selected-sticker-id" name="sticker_id" value="">
+                        </div>
+                    </div>
+                </div>
+
                 <footer class="modal__footer">
                     <button type="submit" class="btn btn--primary">Отправить</button>
                     <button type="button" class="btn" id="thanks-modal-cancel">Отмена</button>

@@ -175,10 +175,30 @@ body {
 }
 
 .message-bar {
-  position: fixed; left: 16px; bottom: 16px; padding: 10px 12px; border-radius: 10px; background: var(--surface);
-  border: 1px solid var(--border); color: var(--fg); opacity: 0; transform: translateY(8px); transition: .2s ease;
+  position: fixed;
+  left: 24px;
+  bottom: 24px;
+  padding: 16px 20px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: all 0.3s ease;
+  font-size: 16px;
+  font-weight: 500;
+  z-index: 10000;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  max-width: calc(100% - 48px);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
-.message-bar.is-visible { opacity: 1; transform: translateY(0); }
+
+.message-bar.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
 
 .modal[aria-hidden="true"] { display: none; }
 
@@ -702,7 +722,6 @@ body {
 }
 
 /* ===== Магазин: карточки товаров ===== */
-
 #shop-items-block {
   margin-top: 24px;
 }
@@ -992,6 +1011,8 @@ body {
   }
 }
 
+
+
 /* Кнопка-шестерёнка в списке игр настроек */
 .settings-games__actions {
   text-align: right;
@@ -1034,6 +1055,9 @@ body {
     object-fit: cover;
     display: block;
 }
+
+
+
 
 /* ==== Модалки игры и магазина: редактирование + создание ==== */
 #game-edit-modal .modal__dialog,
@@ -1209,6 +1233,12 @@ body {
   background: color-mix(in oklab, var(--primary) 24%, var(--surface-2));
 }
 
+#employee-edit-modal .modal__dialog {
+    width: min(900px, 100% - 32px);
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
 #game-edit-modal .btn.btn--primary:hover,
 #game-create-modal .btn.btn--primary:hover,
 #shop-item-create-modal .btn.btn--primary:hover,
@@ -1302,8 +1332,8 @@ body {
 
 .table a,
 .table a:visited {
-    color: var(--fg);        /* тот же цвет, что и обычный текст */
-    text-decoration: none;   /* если не нужно подчёркивание */
+    color: var(--fg);
+    text-decoration: none;
 }
 
 .table a:hover {
@@ -1311,7 +1341,6 @@ body {
     text-decoration: underline;
 }
 
-/* Аннотация блоков Баланс и Спасибки */
 .stat-card {
     position: relative;
     cursor: help;
@@ -1342,7 +1371,6 @@ body {
     word-wrap: break-word;
 }
 
-/* Стрелочка у подсказки (теперь сверху) */
 .stat-card::after {
     content: '';
     position: absolute;
@@ -1357,7 +1385,6 @@ body {
     pointer-events: none;
 }
 
-/* Показываем подсказку при ховере */
 .stat-card:hover::before,
 .stat-card:hover::after {
     opacity: 1;
@@ -1365,14 +1392,12 @@ body {
     transform: translateX(-50%) translateY(0);
 }
 
-/* Адаптивность для мобильных */
 @media (max-width: 768px) {
     .stat-card::before {
         width: 180px;
         font-size: 13px;
     }
 
-    /* На очень маленьких экранах подсказка прижимается к краю */
     @media (max-width: 480px) {
         .stat-card::before {
             width: 160px;
@@ -1382,7 +1407,6 @@ body {
     }
 }
 
-/* Небольшая анимация при наведении на блок */
 .stat-card {
     transition: transform 0.2s ease;
 }
@@ -1392,7 +1416,6 @@ body {
 }
 
 /* --- Пагинация --- */
-/* Применяем стили и к классу pagination, и к конкретным ID блоков пагинации */
 .pagination,
 .history-pagination,
 #likes-history-pagination,
@@ -1441,6 +1464,88 @@ body {
     margin: 0 4px;
     font-variant-numeric: tabular-nums;
 }
+
+
+/* Контейнер селектора внутри модалки "Спасибку" */
+#thanks-modal .sticker-selector {
+    position: relative;
+}
+
+/* Кнопка-триггер (как выпадающий список "Кому") */
+#thanks-modal .sticker-selector__toggle {
+    width: 100%;
+    padding: 8px 12px;
+    text-align: left;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--fg);
+    cursor: pointer;
+    font: inherit;
+}
+
+#thanks-modal .sticker-selector__toggle:hover {
+    border-color: var(--primary);
+}
+
+#thanks-modal .sticker-selector__toggle[aria-expanded="true"] {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px color-mix(in oklab, var(--primary) 30%, transparent);
+}
+
+/* Выпадающая сетка стикеров */
+#thanks-modal .sticker-selector-grid {
+    position: absolute;
+    left: 0;
+    right: 0;
+    margin-top: 4px;
+    padding: 8px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    max-height: 260px;
+    overflow-y: auto;
+    z-index: 10;
+
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+    gap: 8px;
+}
+
+/* Кнопка-стикер */
+#thanks-modal .sticker-item {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;  /* Увеличим отступы для увеличения размера */
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    cursor: pointer;
+    transition:
+        border-color 0.15s ease,
+        background-color 0.15s ease,
+        transform 0.12s ease;
+}
+
+#thanks-modal .sticker-item:hover {
+    border-color: var(--primary);
+    transform: translateY(-1px);
+}
+
+#thanks-modal .sticker-item img {
+    width: 96px; /* 64px * 1.5 */
+    height: 96px; /* 64px * 1.5 */
+    object-fit: contain;
+    display: block;
+}
+
+/* Активный стикер */
+#thanks-modal .sticker-item--active {
+    border-color: var(--primary);
+    background: color-mix(in oklab, var(--primary) 18%, var(--surface-2));
+}
+
 
 /* Отступ для блока Общего рейтинга от предыдущих элементов */
 #overall-rating-block {

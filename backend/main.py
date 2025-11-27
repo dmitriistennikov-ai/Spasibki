@@ -4,7 +4,6 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from backend.api.create_game import router as create_game_router
 from backend.api.games import router as games_router
 from backend.api.install import router as install_router
 from backend.api.items import router as items_router
@@ -12,6 +11,7 @@ from backend.api.like import router as like_router
 from backend.api.likes_history import router as likes_history_router
 from backend.api.likes_info import router as likes_info_router
 from backend.api.purchase import router as purchase_router
+from backend.api.stickers import router as stickers_router
 from backend.api.user import router as user_router
 from backend.api.users import router as users_router
 from backend.scripts.database import Base, engine, SessionLocal
@@ -26,12 +26,13 @@ app.include_router(install_router)
 app.include_router(users_router)
 app.include_router(like_router)
 app.include_router(user_router)
-app.include_router(create_game_router)
 app.include_router(games_router)
 app.include_router(likes_info_router)
 app.include_router(likes_history_router)
 app.include_router(items_router)
 app.include_router(purchase_router)
+app.include_router(stickers_router)
+
 
 # Base.metadata.drop_all(engine)
 Base.metadata.create_all(bind=engine)

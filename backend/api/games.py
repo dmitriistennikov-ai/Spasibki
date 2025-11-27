@@ -196,7 +196,6 @@ def get_all_games(is_active: bool = False, page: int = 1, limit: int = 5, db: Se
 def get_all_games_no_filter(db: Session = Depends(get_db)):
     try:
         games = db.query(Game).all()
-        print(f'отдаём {games[0]}')
         return games
     except Exception as e:
         raise HTTPException(

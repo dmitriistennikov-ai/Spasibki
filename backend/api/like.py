@@ -1,19 +1,13 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+
+from backend.models import Employee, LikeTransaction, LikeRequest
 from backend.scripts.database import get_db
-from backend.models import Employee, LikeTransaction
 from backend.services.bitrix_notify import send_bitrix_notification
 from backend.services.db_search_active_game import search_active_game
 from backend.services.game_service import get_sent_likes_count
-from datetime import datetime
-from pydantic import BaseModel, Field, constr
-from typing import Optional
-
-class LikeRequest(BaseModel):
-    from_id: int = Field(ge=1)
-    to_id: int   = Field(ge=1)
-    message: Optional[str] = Field(default=None, max_length=280)
-
 
 router = APIRouter()
 
@@ -21,8 +15,15 @@ router = APIRouter()
 async def send_like(payload: LikeRequest, db: Session = Depends(get_db)):
 
     active_game = search_active_game(db)
+    print(datetime.today().date())
+    print(active_game.game_end.date())
     if not active_game:
         raise HTTPException(status_code=400, detail="Нельзя отправить Спасибку: сейчас нет активной игры")
+
+    if datetime.today().date() > active_game.game_end.date():
+        raise HTTPException(status_code=400,
+                            detail=f"Нельзя отправить Спасибку: дата завершения игры {active_game.game_end}")
+
 
     count_in_this_game = (
         db.query(LikeTransaction)
@@ -56,7 +57,7 @@ async def send_like(payload: LikeRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Получатель не найден")
 
     like_for.likes += 1
-    like_for.coins += 1
+    like_for.coins += 100
 
     new_like_transaction = LikeTransaction(
         from_user_bitrix_id=payload.from_id,
@@ -64,6 +65,7 @@ async def send_like(payload: LikeRequest, db: Session = Depends(get_db)):
         message=payload.message,
         created_at=datetime.utcnow(),
         game_id=active_game.id,
+        sticker_id=payload.sticker_id,
     )
     db.add(new_like_transaction)
     db.commit()

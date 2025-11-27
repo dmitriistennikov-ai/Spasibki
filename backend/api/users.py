@@ -57,15 +57,15 @@ async def update_users(user_id: int, db: Session = Depends(get_db)):
     try:
         tokens = get_tokens(user_id, db)
         if not tokens:
-            print("❌ Нет токенов для пользователя:")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Нет сохранённых токенов для этого пользователя")
 
         users = await get_all_users_from_bitrix(auth_id = tokens.access_token, refresh_id = tokens.refresh_token, domain = tokens.domain)
+
         if not users:
             raise HTTPException(status_code=400, detail="Ошибка при запросе к API Битрикс24 или пустой ответ")
 
         updated_count = save_or_update_employees(users, db)
-        print(f'Возвращаю: {updated_count}')
+
         return {
             "message": "Список сотрудников обновлён",
             "count": updated_count,
@@ -75,7 +75,6 @@ async def update_users(user_id: int, db: Session = Depends(get_db)):
         raise
 
     except Exception as e:
-        print("Ошибка при обновлении сотрудников:", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Внутренняя ошибка при обновлении сотрудников",

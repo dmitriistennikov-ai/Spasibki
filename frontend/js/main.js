@@ -148,7 +148,7 @@ async function openThanksModal() {
             const fullName = [u.name, u.lastname].filter(Boolean).join(' ');
             const isDisabled = userId && String(u.bitrix_id) === String(userId);
             const disabledClass = isDisabled ? ' thanks-to-dropdown__item--disabled' : '';
-            const photoSrc = u.photo_url || ''; // если нет фото — можно показать заглушку через background или иконку
+            const photoSrc = u.photo_url || '';
 
             return `
                 <li
@@ -218,9 +218,30 @@ async function openThanksModal() {
 
 function closeThanksModal() {
     const modal = document.getElementById('thanks-modal');
-    if(!modal) return;
-    modal.setAttribute('aria-hidden','true');
-    modal.hidden=true;
+    if (!modal) return;
+
+    const msgInput = modal.querySelector('#thanks-message');
+    if (msgInput) msgInput.value = '';
+
+    const toInput = modal.querySelector('#thanks-to');
+    if (toInput) toInput.value = '0';
+
+    const dropdownTrigger = modal.querySelector('.thanks-to-dropdown__trigger');
+    if (dropdownTrigger) dropdownTrigger.textContent = 'Загрузка…';
+
+    const selectedInput = modal.querySelector('#selected-sticker-id');
+    if (selectedInput) selectedInput.value = '';
+
+    const allStickerButtons = modal.querySelectorAll('.sticker-item');
+    allStickerButtons.forEach(btn => {
+        btn.classList.remove('sticker-item--active');
+    });
+
+    const stickerToggle = modal.querySelector('#sticker-selector-toggle');
+    if (stickerToggle) stickerToggle.textContent = 'Выберите стикер';
+
+    modal.setAttribute('aria-hidden', 'true');
+    modal.hidden = true;
 }
 
 
@@ -229,6 +250,7 @@ async function submitThanks(e) {
     const modal = document.getElementById('thanks-modal');
     const toId = Number(modal.querySelector('#thanks-to')?.value || '0');
     const fromId = Number(getCurrentUserId() || '0');
+    const stickerId = Number(modal.querySelector('#selected-sticker-id')?.value || '0');
     if (!toId || toId === fromId) {
         toast('Выберите получателя');
         return;
@@ -236,6 +258,7 @@ async function submitThanks(e) {
     const msg = (modal.querySelector('#thanks-message')?.value || '').trim();
     const payload = { from_id: fromId, to_id: toId };
     if (msg) payload.message = msg;
+    if (stickerId > 0) payload.sticker_id = stickerId;
     try {
         const resp = await fetch('/api/like', {
             method: 'POST',
@@ -256,6 +279,11 @@ async function submitThanks(e) {
         toast('Спасибка отправлена!');
         await loadLikesHistory();
         await refreshGameLikesInfo();
+        await loadLiveFeedHistory();
+        await loadOverallRating();
+        await loadPurchasesHistory();
+        await loadCurrentUser();
+
         closeThanksModal();
     } catch (err) {
         console.error(err);
@@ -320,22 +348,58 @@ async function reloadLikesHistory() {
 }
 
 
-function renderLikesHistory(rows) {
+async function renderLikesHistory(rows) {
     const tbody = document.querySelector('#likes-history tbody');
-    if(!tbody) return;
-    if(!rows || !rows.length) {
-        tbody.innerHTML = `<tr><td class="table__empty" colspan="4">Пока пусто</td></tr>`;
+    if (!tbody) return;
+    if (!rows || !rows.length) {
+        tbody.innerHTML = `<tr><td class="table__empty" colspan="5">Спасибок еще не было</td></tr>`;
         return;
     }
 
-    tbody.innerHTML = rows.map(r => `
-        <tr>
-            <td>${esc(fmtDate(r.date))}</td>
-            <td>${esc(r.from_user_name)}</td>
-            <td>${esc(r.to_user_name)}</td>
-            <td>${esc(r.msg || '')}</td>
-        </tr>
-    `).join('');
+    const rowsHtml = await Promise.all(rows.map(async (r) => {
+        const stickerUrl = r.sticker_id ? await getStickerUrl(r.sticker_id) : null;
+
+        return `
+            <tr>
+                <td>${esc(fmtDate(r.date))}</td>
+                <td>${esc(r.from_user_name)}</td>
+                <td>${esc(r.to_user_name)}</td>
+                <td>${esc(r.msg || '')}</td>
+                <td>
+                    ${stickerUrl ? `<img src="${esc(stickerUrl)}" alt="Стикер" style="width: 48px; height: 48px; object-fit: contain;" />` : ''}
+                </td>
+            </tr>
+        `;
+    }));
+
+    tbody.innerHTML = rowsHtml.join('');
+}
+
+
+const stickerUrlCache = new Map();
+
+
+async function getStickerUrl(stickerId) {
+    if (!stickerId) return null;
+
+    if (stickerUrlCache.has(stickerId)) {
+        return stickerUrlCache.get(stickerId);
+    }
+
+    try {
+        const res = await fetch(`/api/sticker/${stickerId}`);
+        if (res.ok) {
+            const data = await res.json();
+            const url = data.url;
+
+            stickerUrlCache.set(stickerId, url);
+            return url;
+        }
+        return null;
+    } catch (e) {
+        console.error('Ошибка загрузки стикера:', e);
+        return null;
+    }
 }
 
 
@@ -365,6 +429,118 @@ function applyLikesFilter() {
     };
     setBtn(toMe, likesFilter === 'received');
     setBtn(fromMe, likesFilter === 'sent');
+}
+
+
+let liveFeedPage = 1;
+let liveFeedHistoryRows = [];
+let liveFeedHistoryLimit = 10;
+let liveFeedTotalPages = 1;
+
+
+async function loadLiveFeedHistory(limit = liveFeedHistoryLimit, offset = 0) {
+    const tbody = document.querySelector('#live-feed-thanks tbody');
+    if (tbody) tbody.innerHTML = `<tr><td class="table__empty" colspan="4">Загрузка…</td></tr>`;
+
+    try {
+        const res = await fetch(
+            `/api/likes/feed?limit=${limit}&offset=${offset}`
+        );
+        if (!res.ok) throw new Error(`Не удалось загрузить ленту (${res.status})`);
+
+        const data = await res.json();
+
+        liveFeedHistoryRows = data.likes;
+        liveFeedTotalPages = data.total_pages;
+
+        updateLiveFeedPager();
+        renderLiveFeedHistory(liveFeedHistoryRows);
+    } catch (e) {
+        console.error(e);
+        liveFeedHistoryRows = [];
+        renderLiveFeedHistory(liveFeedHistoryRows);
+        toast(e.message || 'Ошибка загрузки ленты');
+        liveFeedTotalPages = 1;
+        updateLiveFeedPager();
+    }
+}
+
+
+function updateLiveFeedPager() {
+    const prevButton = document.getElementById('live-feed-thanks-prev-page-btn');
+    const nextButton = document.getElementById('live-feed-thanks-next-page-btn');
+    const currentPageSpan = document.getElementById('live-feed-thanks-current-page');
+
+    if (!currentPageSpan || !prevButton || !nextButton) return;
+
+    currentPageSpan.textContent = `Страница ${liveFeedPage}`;
+
+    prevButton.disabled = liveFeedPage === 1;
+    nextButton.disabled = liveFeedPage >= liveFeedTotalPages || liveFeedHistoryRows.length === 0;
+}
+
+
+function renderLiveFeedHistory(rows) {
+    const tbody = document.querySelector('#live-feed-thanks tbody');
+    if(!tbody) return;
+
+    if(!rows || !rows.length) {
+        tbody.innerHTML = `<tr><td class="table__empty" colspan="5">Спасибок еще не было</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = rows.map(r => `
+        <tr>
+            <td>${esc(fmtDate(r.date))}</td>
+            <td>${esc(r.from_user_name)}</td>
+            <td>${esc(r.to_user_name)}</td>
+            <td>${esc(r.msg || '')}</td>
+            <td>${r.sticker_id ? '⌛' : ''}</td>
+        </tr>
+    `).join('');
+
+    rows.forEach(async (row, index) => {
+        if (row.sticker_id) {
+            const stickerUrl = await getStickerUrl(row.sticker_id);
+            if (stickerUrl) {
+                const tableRows = tbody.querySelectorAll('tr');
+                if (tableRows[index]) {
+                    const stickerCell = tableRows[index].cells[4];
+                    stickerCell.innerHTML = `<img src="${esc(stickerUrl)}" alt="Стикер" style="width: 40px; height: 40px;">`;
+                }
+            }
+        }
+    });
+}
+
+
+function initLiveFeed() {
+    const liveFeedTabButton = document.querySelector('.tabs__button[data-tab="live-feed"]');
+    document.getElementById('live-feed-thanks-prev-page-btn')?.addEventListener('click', () => {
+        if (liveFeedPage > 1) {
+            liveFeedPage--;
+            const offset = (liveFeedPage - 1) * liveFeedHistoryLimit;
+            loadLiveFeedHistory(liveFeedHistoryLimit, offset);
+        }
+    });
+
+    document.getElementById('live-feed-thanks-next-page-btn')?.addEventListener('click', () => {
+        if (liveFeedPage < liveFeedTotalPages) {
+            liveFeedPage++;
+            const offset = (liveFeedPage - 1) * liveFeedHistoryLimit;
+            loadLiveFeedHistory(liveFeedHistoryLimit, offset);
+        }
+    });
+
+    liveFeedTabButton?.addEventListener('click', () => {
+        if (liveFeedHistoryRows.length === 0 && liveFeedPage === 1) {
+            loadLiveFeedHistory();
+        }
+    });
+
+    if (document.getElementById('live-feed')?.classList.contains('tab-content--active')) {
+        loadLiveFeedHistory();
+    }
 }
 
 
@@ -478,7 +654,7 @@ function formatGameRules(game) {
     if (perUser != null) {
         parts.push(`и не более ${perUser} Спасибок одному и тому же человеку`);
     }
-    return parts.length ? parts.join(', ') : 'Правила пока не заданы';
+    return parts.length ? parts.join(', ') : 'Правила еще не заданы';
 }
 
 
@@ -490,30 +666,30 @@ function closeGameModal() {
 }
 
 
-//async function refreshGameLikesInfo() {
-//    const container = document.getElementById('game-stats-container');
-//    if (!container) return;
-//
-//    container.hidden = true;
-//
-//    const userId = getCurrentUserId();
-//    if (!userId) return;
-//
-//    try {
-//        const likesInfo = await fetchLikesInfo(userId);
-//
-//        if (likesInfo && likesInfo.received_likes !== null && likesInfo.received_likes !== undefined) {
-//            document.getElementById('game-thanks-received').textContent =
-//                `Получено Спасибок в текущей игре: ${likesInfo.received_likes ?? 0}`;
-//            document.getElementById('game-thanks-limit').textContent =
-//                `Остаток Спасибок в текущей игре: ${likesInfo.remaining_likes ?? 0}`;
-//
-//            container.hidden = false;
-//        }
-//    } catch (e) {
-//        console.error(e);
-//    }
-//}
+async function refreshGameLikesInfo() {
+    const container = document.getElementById('game-stats-container');
+    if (!container) return;
+
+    container.hidden = true;
+
+    const userId = getCurrentUserId();
+    if (!userId) return;
+
+    try {
+        const likesInfo = await fetchLikesInfo(userId);
+
+        if (likesInfo && likesInfo.received_likes !== null && likesInfo.received_likes !== undefined) {
+            document.getElementById('game-thanks-received').textContent =
+                `Получено Спасибок в текущей игре: ${likesInfo.received_likes ?? 0}`;
+            document.getElementById('game-thanks-limit').textContent =
+                `Остаток Спасибок в текущей игре: ${likesInfo.remaining_likes ?? 0}`;
+
+            container.hidden = false;
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
 
 
 async function renderActiveGame(rows) {
@@ -618,7 +794,7 @@ async function loadGameRatingById(gameId) {
 
 
 function renderGameRating(rows, containerId = 'game-modal-rating') {
-    const root = document.getElementById(containerId); // Используем переданный ID
+    const root = document.getElementById(containerId);
     if (!root) return;
 
     const emptyMessage = containerId === 'overall-rating-container'
@@ -765,7 +941,7 @@ function renderShopItems(items) {
     if (!root) return;
 
     if (!items || !items.length) {
-        root.innerHTML = '<p class="shop-empty">Пока нет доступных товаров</p>';
+        root.innerHTML = '<p class="shop-empty">Еще нет доступных товаров</p>';
         return;
     }
 
@@ -916,8 +1092,9 @@ async function handlePurchase(button) {
 
         const result = await response.json();
         toast('Товар успешно куплен!');
-        console.log('Покупка завершена:', result);
-
+        await loadPurchasesHistory();
+        await loadShopItems();
+        await loadCurrentUser();
         const card = button.closest('.shop-card');
         if (card) {
             const stockEl = card.querySelector('.shop-card__stock');
@@ -997,7 +1174,7 @@ function renderSettingsGames(games) {
     if (!body) return;
 
     if (!games || !games.length) {
-        content.innerHTML = '<p class="placeholder">Игр пока нет.</p>';
+        content.innerHTML = '<p class="placeholder">Игр еще нет</p>';
         return;
     }
 
@@ -1060,7 +1237,6 @@ function initSettingsNav() {
     const createShopBtn = settingsContent.querySelector('#create-shop-item-btn');
     const updateEmployeesBtn = settingsContent.querySelector('#update-employees-btn');
 
-
     if (!bodyEl) return;
 
     sidebar.addEventListener('click', async (event) => {
@@ -1113,6 +1289,20 @@ function initSettingsNav() {
                 await reloadSettingsEmployees();
             } catch (err) {
                 bodyEl.innerHTML = '<p class="placeholder">Не удалось загрузить сотрудников.</p>';
+            }
+
+        } else if (section === 'purchases') {
+            if (titleEl) titleEl.textContent = 'История покупок';
+            if (createGameBtn) createGameBtn.hidden = true;
+            if (createShopBtn) createShopBtn.hidden = true;
+            if (updateEmployeesBtn) updateEmployeesBtn.hidden = true;
+
+            bodyEl.innerHTML = '<p class="placeholder">Загружаем историю покупок…</p>';
+
+            try {
+                loadPurchasesForSettings();
+            } catch (err) {
+                bodyEl.innerHTML = '<p class="placeholder">Не удалось загрузить историю покупок</p>';
             }
         }
     });
@@ -1314,8 +1504,10 @@ async function submitGameEditForm(e) {
         loadGames().catch(() => {});
 
         toast('Игра сохранена');
+
         closeGameEditModal();
         await reloadSettingsGames();
+        await loadGames();
     } catch (err) {
         console.error(err);
         toast(err.message || 'Не удалось сохранить игру');
@@ -1429,6 +1621,8 @@ async function submitGameCreateForm(e) {
         toast('Игра создана');
         closeGameCreateModal();
         await reloadSettingsGames();
+        await loadGames();
+        await loadOverallRating();
     } catch (err) {
         console.error(err);
         toast(err.message || 'Не удалось создать игру');
@@ -1437,6 +1631,37 @@ async function submitGameCreateForm(e) {
             submitBtn.disabled = false;
             submitBtn.textContent = 'Создать';
         }
+    }
+}
+
+
+async function deleteGame(gameId) {
+    try {
+        const res = await fetch(`/api/games/${gameId}`, {
+            method: 'DELETE',
+        });
+
+        if (!res.ok) {
+            let msg = `Ошибка удаления игры (${res.status})`;
+            try {
+                const data = await res.json();
+                if (data?.detail) {
+                    msg = data.detail;
+                }
+            } catch (_) {}
+            throw new Error(msg);
+        }
+
+        toast('Игра удалена');
+
+        await reloadSettingsGames();
+        await loadGames();
+        await loadOverallRating();
+
+    } catch (err) {
+        console.error(err);
+        toast(err.message || 'Не удалось удалить игру');
+        throw err;
     }
 }
 
@@ -1582,7 +1807,7 @@ function renderSettingsItems(items) {
 
     if (!items || !items.length) {
         body.innerHTML = `
-            <p class="placeholder">Товаров пока нет.</p>
+            <p class="placeholder">Товаров еще нет</p>
         `;
         return;
     }
@@ -1696,7 +1921,6 @@ async function submitShopItemCreateForm(e) {
                 const data = await res.json();
                 if (data?.detail) msg = data.detail;
             } catch (err) {
-                // ignore
             }
             throw new Error(msg);
         }
@@ -1704,6 +1928,7 @@ async function submitShopItemCreateForm(e) {
         toast('Товар создан');
         closeShopItemCreateModal();
         await reloadSettingsItems();
+        await loadShopItems();
     } catch (err) {
         console.error(err);
         toast(err.message || 'Не удалось создать товар');
@@ -1733,6 +1958,8 @@ async function deleteItem(id) {
         }
 
         toast('Товар удалён');
+        await reloadSettingsItems();
+        await loadShopItems();
     } catch (err) {
         console.error(err);
         toast(err.message || 'Не удалось удалить товар');
@@ -1891,6 +2118,7 @@ async function submitShopItemEditForm(e) {
         toast('Товар обновлён');
         closeShopItemEditModal();
         await reloadSettingsItems();
+        await loadShopItems();
     } catch (err) {
         console.error(err);
         toast(err.message || 'Не удалось обновить товар');
@@ -2008,7 +2236,7 @@ function renderSettingsEmployees(employees) {
 
     if (!employees || !employees.length) {
         body.innerHTML = `
-            <p class="placeholder">Сотрудников пока нет</p>
+            <p class="placeholder">Сотрудников еще нет</p>
         `;
         return;
     }
@@ -2188,7 +2416,7 @@ async function submitEmployeeEditForm(e) {
 
         toast('Данные сотрудника обновлены');
         closeEmployeeEditModal();
-
+        await loadCurrentUser();
         await reloadSettingsEmployees();
     } catch (err) {
         console.error(err);
@@ -2269,7 +2497,7 @@ function renderPurchasesHistory(rows) {
     if (!tbody) return;
 
     if (!rows || !rows.length) {
-        tbody.innerHTML = `<tr><td class="table__empty" colspan="3">Покупок пока нет</td></tr>`;
+        tbody.innerHTML = `<tr><td class="table__empty" colspan="3">Покупок еще не было</td></tr>`;
         return;
     }
 
@@ -2296,7 +2524,7 @@ function updatePurchasesPagination() {
     if (pageLabel) pageLabel.textContent = `Страница ${currentPurchasesPage}`;
 
     if (prevBtn) prevBtn.disabled = currentPurchasesPage === 1;
-    if (nextBtn) nextBtn.disabled = currentPurchasesPage >= purchasesTotalPages; // или ===, но >= надежнее
+    if (nextBtn) nextBtn.disabled = currentPurchasesPage >= purchasesTotalPages;
 }
 
 
@@ -2320,6 +2548,177 @@ function initPurchasesHistory() {
                 loadPurchasesHistory();
             }
         });
+    }
+}
+
+
+let stickerCatalog = [];
+
+
+async function loadStickerCatalog() {
+    if (stickerCatalog.length > 0) return;
+
+    try {
+        const res = await fetch('/api/stickers');
+        if (!res.ok) throw new Error('Не удалось загрузить каталог стикеров');
+
+        stickerCatalog = await res.json();
+        renderStickerSelector(stickerCatalog);
+    } catch (e) {
+        console.error("Ошибка загрузки стикеров:", e);
+    }
+}
+
+
+function renderStickerSelector(catalog) {
+    const selectorContainer = document.getElementById('sticker-selector');
+    if (!selectorContainer || catalog.length === 0) return;
+
+    let html = '';
+
+    catalog.forEach(sticker => {
+        html += `
+            <button
+                type="button"
+                class="sticker-item"
+                data-id="${sticker.id}"
+                data-name="${esc(sticker.name || 'Стикер')}"
+                title="${esc(sticker.name || '')}"
+            >
+                <img src="${esc(sticker.url)}"
+                     alt="${esc(sticker.name || 'Стикер')}"
+                     loading="lazy" />
+            </button>
+        `;
+    });
+
+    selectorContainer.innerHTML = html;
+}
+
+
+function initStickerSelector() {
+    const selectorContainer = document.getElementById('sticker-selector');
+    const selectedInput = document.getElementById('selected-sticker-id');
+    const toggleBtn = document.getElementById('sticker-selector-toggle');
+
+    if (!selectorContainer || !selectedInput || !toggleBtn) return;
+
+    let activeButton = null;
+
+    toggleBtn.textContent = 'Выберите стикер';
+
+    toggleBtn.addEventListener('click', () => {
+        const isHidden = selectorContainer.hasAttribute('hidden');
+
+        if (isHidden) {
+            selectorContainer.removeAttribute('hidden');
+        } else {
+            selectorContainer.setAttribute('hidden', '');
+        }
+
+        toggleBtn.setAttribute('aria-expanded', String(isHidden));
+    });
+
+    selectorContainer.addEventListener('click', (e) => {
+        const button = e.target.closest('.sticker-item');
+        if (!button) return;
+
+        if (activeButton === button) {
+            button.classList.remove('sticker-item--active');
+            activeButton = null;
+            selectedInput.value = '';
+            toggleBtn.textContent = 'Стикер не выбран';
+            return;
+        }
+
+        if (activeButton) {
+            activeButton.classList.remove('sticker-item--active');
+        }
+
+        button.classList.add('sticker-item--active');
+        activeButton = button;
+
+        const selectedId = button.dataset.id;
+        selectedInput.value = selectedId;
+
+        const name = button.dataset.name || 'Стикер выбран';
+        toggleBtn.textContent = name;
+
+        selectorContainer.setAttribute('hidden', '');
+        toggleBtn.setAttribute('aria-expanded', 'false');
+    });
+}
+
+
+async function loadPurchasesForSettings(page = 1, limit = 10) {
+    const settingsBody = document.getElementById("settings-body");
+    if (!settingsBody) return;
+
+    settingsBody.innerHTML = `
+        <p class="placeholder">Загрузка истории покупок…</p>
+    `;
+
+    try {
+        const response = await fetch(`/api/purchases?page=${page}&limit=${limit}`);
+        if (!response.ok) {
+            throw new Error("Не удалось загрузить покупок");
+        }
+
+        const data = await response.json();
+
+        if (!data.purchases || data.purchases.length === 0) {
+            settingsBody.innerHTML = `
+                <p class="placeholder">Покупок еще не было</p>
+            `;
+            return;
+        }
+
+        const rows = data.purchases.map(p => {
+            const createdAt = new Date(p.created_at);
+            const date = createdAt.toLocaleString("ru-RU", {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+            });
+
+            const last = p.buyer_lastname ? ` ${p.buyer_lastname}` : '';
+            const who = `${p.buyer_name}${last}`;
+
+            return `
+                <tr>
+                    <td>${esc(date)}</td>
+                    <td>${esc(who)}</td>
+                    <td>${esc(p.item_name)}</td>
+                    <td>${Number(p.amount_spent).toLocaleString('ru-RU')} ❤</td>
+                </tr>
+            `;
+        }).join('');
+
+        settingsBody.innerHTML = `
+            <div class="table-wrap">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Дата</th>
+                            <th>Кто</th>
+                            <th>Товар</th>
+                            <th>Цена</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows}
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+    } catch (error) {
+        console.error(error);
+        settingsBody.innerHTML = `
+            <p class="placeholder">Не удалось загрузить историю покупок</p>
+        `;
     }
 }
 
@@ -2578,6 +2977,10 @@ document.addEventListener('DOMContentLoaded', () => {
         loadLikesHistory(likesHistoryLimit, offset);
     });
 
+    initLiveFeed();
+
+    initStickerSelector();
+    loadStickerCatalog();
 
 })
 

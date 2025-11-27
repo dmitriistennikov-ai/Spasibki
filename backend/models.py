@@ -1,10 +1,9 @@
 from datetime import datetime, timedelta
 from enum import Enum as PyEnum
-from typing import Optional
+from typing import Optional, Literal, List
 
 from pydantic import BaseModel, Field, ConfigDict
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Enum, Index, Text, func
-from sqlalchemy import JSON
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Enum, Index, Text, func, JSON
 from sqlalchemy.orm import relationship
 
 from backend.scripts.database import Base
@@ -102,16 +101,61 @@ class LikeTransaction(Base):
     created_at = Column(DateTime, nullable=False, default=lambda: datetime.utcnow() + timedelta(hours=LOCAL_OFFSET))
     game_id = Column(Integer, ForeignKey("games.id"), nullable=True)
     message = Column(Text, nullable=True)
+    sticker_id = Column(Integer, ForeignKey("stickers.id"), nullable=True)
 
     from_user = relationship("Employee", foreign_keys=[from_user_bitrix_id], lazy="joined", overlaps="to_user")
     to_user = relationship("Employee", foreign_keys=[to_user_bitrix_id], lazy="joined", overlaps="from_user")
     game = relationship("Game", back_populates="likes")
+    sticker = relationship("Sticker", back_populates="likes")
 
     __table_args__ = (
         Index('ix_like_transactions_from_user_game', 'from_user_bitrix_id', 'game_id'),
         Index('ix_like_transactions_to_user_game', 'to_user_bitrix_id', 'game_id'),
         Index('ix_like_transactions_created_game', 'created_at', 'game_id'),
     )
+
+
+class LikeRequest(BaseModel):
+    from_id: int = Field(ge=1)
+    to_id: int = Field(ge=1)
+    message: Optional[str] = Field(default=None, max_length=280)
+    sticker_id: Optional[int] = Field(default=None, ge=1)
+
+
+class LikeHistoryResponse(BaseModel):
+    id: int
+    date: datetime
+    type: Literal["sent", "received"]
+    from_user_bitrix_id: int
+    to_user_bitrix_id: int
+    msg: Optional[str] = None
+    sticker_id: Optional[int] = None
+    from_user_name: str
+    to_user_name: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UserLikesHistory(BaseModel):
+    likes: List[LikeHistoryResponse]
+    total_pages: int
+
+
+class AllLikeTransactionResponse(BaseModel):
+    id: int
+    date: datetime
+    from_user_name: Optional[str] = 'Неизвестно'
+    to_user_name: Optional[str] = 'Неизвестно'
+    msg: Optional[str] = None
+    sticker_id: Optional[int] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AllLikesHistory(BaseModel):
+    likes: List[AllLikeTransactionResponse]
+    total_pages: int
+
 
 # --- 4. Таблица игры ---
 class LimitParameter(PyEnum):
@@ -217,6 +261,7 @@ class ItemResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
 # --- 6. Таблица покупок  ---
 class BuyTransaction(Base):
     __tablename__ = "buy_transactions"
@@ -239,5 +284,63 @@ class BuyTransactionResponse(BaseModel):
     item_id: int
     amount_spent: int
     created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PurchaseHistoryResponse(BaseModel):
+    id: int
+    item_name: str
+    item_photo_url: Optional[str]
+    amount_spent: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class AllPurchasesRow(BaseModel):
+    id: int
+    buyer_name: str
+    buyer_lastname: Optional[str] = None
+    item_name: str
+    amount_spent: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class PurchaseHistoryPage(BaseModel):
+    purchases: List[PurchaseHistoryResponse]
+    total: int
+    page: int
+    size: int
+    total_pages: int
+
+
+class AllPurchasesPage(BaseModel):
+    purchases: List[AllPurchasesRow]
+    total: int
+    page: int
+    size: int
+    total_pages: int
+
+
+# --- 7. Таблица стикеров  ---
+class Sticker(Base):
+    __tablename__ = "stickers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    url = Column(String(255), unique=True, nullable=False)
+    name = Column(String(50), nullable=False)
+
+    likes = relationship("LikeTransaction", back_populates="sticker")
+
+
+class StickerResponse(BaseModel):
+    id: int
+    url: str
+    name: str
 
     model_config = ConfigDict(from_attributes=True)

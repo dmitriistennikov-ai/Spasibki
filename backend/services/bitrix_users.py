@@ -12,7 +12,12 @@ async def get_all_users(auth_id: str, refresh_id: str, domain: str) -> list[dict
         start = 0
 
         while True:
-            users_batch = await bx.call("user.get", {"start": start})
+            users_batch = await bx.call("user.get", {
+                "start": start,
+                "ACTIVE": True,
+                "USER_TYPE": "employee",
+            })
+
             batch_result = users_batch.get("result", [])
 
             if not batch_result:
