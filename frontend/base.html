@@ -290,6 +290,13 @@
                     >
                         Покупки
                     </button>
+                    <button
+                            type="button"
+                            class="settings-nav__button"
+                            data-settings-section="stickers"
+                    >
+                        Стикеры
+                    </button>
                 </nav>
 
                 <section class="settings-content" aria-live="polite">
@@ -327,14 +334,23 @@
                             <i aria-hidden="true"></i>
                             Обновить сотрудников
                         </button>
+
+                        <button
+                                id="show-sticker-create-modal"
+                                class="btn btn--primary btn--tiny"
+                                type="button"
+                                hidden
+                        >
+                            <i aria-hidden="true"></i>
+                            Создать стикер
+                        </button>
                     </div>
 
                     <div id="settings-body">
                         <p class="placeholder">Выберите раздел настроек слева.</p>
                     </div>
+
                 </section>
-
-
             </div>
         </section>
 
@@ -580,6 +596,87 @@
                 <footer class="modal__footer">
                     <button type="button" class="btn" id="game-create-cancel">Отмена</button>
                     <button type="submit" class="btn btn--primary">Создать</button>
+                </footer>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модалка создания стикера -->
+    <div
+            id="sticker-create-modal"
+            class="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-hidden="true"
+            hidden
+    >
+        <div class="modal__overlay"></div>
+
+        <div class="modal__dialog" role="document" aria-labelledby="sticker-create-modal-title">
+            <header class="modal__header">
+                <h3 id="sticker-create-modal-title" class="modal__title">
+                    Новый стикер
+                </h3>
+                <button
+                        type="button"
+                        class="modal__close"
+                        id="sticker-create-modal-close"
+                        aria-label="Закрыть"
+                >
+                    ✕
+                </button>
+            </header>
+
+            <form id="sticker-create-form">
+                <div class="modal__content">
+                    <label class="form-label" for="sticker-create-name">Название</label>
+                    <input
+                            id="sticker-create-name"
+                            name="name"
+                            type="text"
+                            required
+                    />
+                </div>
+
+                <div class="modal__content">
+                    <label for="sticker-create-file" class="form-label">Файл стикера</label>
+                    <input
+                            type="file"
+                            id="sticker-create-file"
+                            accept="image/png, image/jpeg, image/webp, image/gif"
+                            required
+                    >
+                    <input
+                            type="hidden"
+                            id="sticker-create-url"
+                    >
+                    <div id="sticker-create-preview" class="shop-item-photo-preview" hidden>
+                        <button
+                                type="button"
+                                id="sticker-create-preview-clear"
+                                class="shop-item-photo-preview__clear"
+                                aria-label="Удалить файл"
+                        >
+                            ✕
+                        </button>
+                        <img alt="Превью стикера">
+                    </div>
+                </div>
+
+                <footer class="modal__footer">
+                    <button
+                            type="button"
+                            class="btn"
+                            id="sticker-create-cancel"
+                    >
+                        Отмена
+                    </button>
+                    <button
+                            type="submit"
+                            class="btn btn--primary"
+                    >
+                        Создать
+                    </button>
                 </footer>
             </form>
         </div>

@@ -17,6 +17,7 @@ STATIC_DIR = BASE_DIR / "static"
 ITEMS_UPLOAD_DIR = STATIC_DIR / "uploads" / "items"
 ITEMS_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
+
 @router.get("/api/show-items", response_model=list[ItemResponse])
 async def get_show_items(db: Session = Depends(get_db)):
 

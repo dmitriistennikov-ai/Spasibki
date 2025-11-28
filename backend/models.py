@@ -337,10 +337,14 @@ class Sticker(Base):
 
     likes = relationship("LikeTransaction", back_populates="sticker")
 
-
 class StickerResponse(BaseModel):
     id: int
     url: str
     name: str
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class StickerCreate(BaseModel):
+    name: str
+    url: str

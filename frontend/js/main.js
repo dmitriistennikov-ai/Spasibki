@@ -1137,6 +1137,7 @@ let settingsGamesLoaded = false;
 let settingsGames = [];
 let currentEditingGameId = null;
 
+
 async function loadSettingsGames() {
     if (settingsGamesLoaded && settingsGames.length) {
         return settingsGames;
@@ -1236,6 +1237,7 @@ function initSettingsNav() {
     const createGameBtn = settingsContent.querySelector('#create-game-btn');
     const createShopBtn = settingsContent.querySelector('#create-shop-item-btn');
     const updateEmployeesBtn = settingsContent.querySelector('#update-employees-btn');
+    const showStickerCreateModalBtn = settingsContent.querySelector('#show-sticker-create-modal');
 
     if (!bodyEl) return;
 
@@ -1254,6 +1256,7 @@ function initSettingsNav() {
             if (createGameBtn) createGameBtn.hidden = false;
             if (createShopBtn) createShopBtn.hidden = true;
             if (updateEmployeesBtn) updateEmployeesBtn.hidden = true;
+            if (showStickerCreateModalBtn) showStickerCreateModalBtn.hidden = true;
 
             bodyEl.innerHTML = '<p class="placeholder">Загружаем список игр…</p>';
             try {
@@ -1268,6 +1271,7 @@ function initSettingsNav() {
             if (createGameBtn) createGameBtn.hidden = true;
             if (createShopBtn) createShopBtn.hidden = false;
             if (updateEmployeesBtn) updateEmployeesBtn.hidden = true;
+            if (showStickerCreateModalBtn) showStickerCreateModalBtn.hidden = true;
 
             bodyEl.innerHTML = '<p class="placeholder">Загружаем список товаров…</p>';
 
@@ -1283,6 +1287,7 @@ function initSettingsNav() {
             if (createGameBtn) createGameBtn.hidden = true;
             if (createShopBtn) createShopBtn.hidden = true;
             if (updateEmployeesBtn) updateEmployeesBtn.hidden = false;
+            if (showStickerCreateModalBtn) showStickerCreateModalBtn.hidden = true;
 
             bodyEl.innerHTML = '<p class="placeholder">Загружаем сотрудников…</p>';
             try {
@@ -1296,6 +1301,7 @@ function initSettingsNav() {
             if (createGameBtn) createGameBtn.hidden = true;
             if (createShopBtn) createShopBtn.hidden = true;
             if (updateEmployeesBtn) updateEmployeesBtn.hidden = true;
+            if (showStickerCreateModalBtn) showStickerCreateModalBtn.hidden = true;
 
             bodyEl.innerHTML = '<p class="placeholder">Загружаем историю покупок…</p>';
 
@@ -1304,8 +1310,24 @@ function initSettingsNav() {
             } catch (err) {
                 bodyEl.innerHTML = '<p class="placeholder">Не удалось загрузить историю покупок</p>';
             }
+        } else if (section === 'stickers') {
+            if (titleEl) titleEl.textContent = 'Список стикеров';
+            if (createGameBtn) createGameBtn.hidden = true;
+            if (createShopBtn) createShopBtn.hidden = true;
+            if (updateEmployeesBtn) updateEmployeesBtn.hidden = true;
+            if (showStickerCreateModalBtn) showStickerCreateModalBtn.hidden = false;
+
+            bodyEl.innerHTML = '<p class="placeholder">Загружаем список стикеров…</p>';
+
+            try {
+                const stickers = await loadSettingsStickers();
+                renderSettingsStickers(stickers);
+            } catch (err) {
+                bodyEl.innerHTML = '<p class="placeholder">Не удалось загрузить список стикеров</p>';
+            }
         }
     });
+
 
     settingsContent.addEventListener('click', async (event) => {
     const gameEditBtn = event.target.closest('.settings-game-edit-btn');
@@ -1361,6 +1383,19 @@ function initSettingsNav() {
         const employee = settingsEmployees.find(e => String(e.bitrix_id) === String(id));
         if (!employee) return;
         openEmployeeEditModal(employee);
+        return;
+    }
+
+    const stickerDeleteBtn = event.target.closest('.settings-sticker-delete-btn');
+    if (stickerDeleteBtn) {
+        const id = Number(stickerDeleteBtn.dataset.stickerId);
+        const name = stickerDeleteBtn.dataset.stickerName;
+
+        const ok = confirm(`Удалить стикер «${name}»? Это действие необратимо.`);
+        if (!ok) return;
+
+        await deleteSticker(id);
+        await reloadSettingsStickers();
         return;
     }
     });
@@ -2723,6 +2758,213 @@ async function loadPurchasesForSettings(page = 1, limit = 10) {
 }
 
 
+async function loadSettingsStickers() {
+    const response = await fetch(`/api/stickers`);
+    if (!response.ok) {
+        throw new Error('Ошибка загрузки стикеров');
+    }
+    return await response.json();
+}
+
+
+function renderSettingsStickers(stickers) {
+    const bodyEl = document.querySelector('#settings-body');
+    if (!bodyEl) return;
+
+    if (stickers.length === 0) {
+        bodyEl.innerHTML = '<p class="placeholder">В каталоге нет стикеров.</p>';
+        return;
+    }
+
+    let html = '<div class="stickers-gallery">';
+
+    stickers.forEach(sticker => {
+        html += `
+            <div class="sticker-item" data-sticker-id="${sticker.id}">
+                <img
+                    src="${sticker.url}"
+                    alt="${sticker.name}"
+                    style="width: 128px; height: 128px; object-fit: contain; cursor: pointer;"
+                >
+                <button
+                    type="button"
+                    class="settings-sticker-delete-btn"
+                    data-sticker-id="${sticker.id}"
+                    data-sticker-name="${sticker.name}"
+                >
+                    ✕
+                </button>
+            </div>`;
+    });
+
+    html += '</div>';
+
+    bodyEl.innerHTML = html;
+}
+
+
+function initStickerCreateModal() {
+    const modal = document.getElementById('sticker-create-modal');
+    const form = document.getElementById('sticker-create-form');
+    const fileInput = document.getElementById('sticker-create-file');
+    const previewBlock = document.getElementById('sticker-create-preview');
+    const clearBtn = document.getElementById('sticker-create-preview-clear');
+
+    if (!modal || !form || !fileInput || !previewBlock || !clearBtn) {
+        console.warn('Sticker modal: required elements not found');
+        return;
+    }
+
+    const previewImg = previewBlock.querySelector('img');
+    const openBtn = document.getElementById('show-sticker-create-modal');
+
+    if (openBtn) {
+        openBtn.addEventListener('click', () => {
+            modal.hidden = false;
+            modal.setAttribute('aria-hidden', 'false');
+        });
+    } else {
+        console.warn('Sticker modal: open button #show-sticker-create-modal not found');
+    }
+
+    fileInput.addEventListener('change', () => {
+        const file = fileInput.files[0];
+        if (file && previewImg) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                previewImg.src = e.target.result;
+                previewBlock.hidden = false;
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    clearBtn.addEventListener('click', () => {
+        fileInput.value = '';
+        previewBlock.hidden = true;
+        if (previewImg) previewImg.src = '';
+    });
+
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+
+        const submitBtn = form.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Загрузка...';
+
+        try {
+            const name = document.getElementById('sticker-create-name').value;
+            const file = fileInput.files[0];
+
+            if (!file) {
+                toast('Выберите файл!');
+                return;
+            }
+
+            const uploadResult = await uploadStickerImage(file);
+            const serverUrl = uploadResult.url;
+
+            await createStickerRecord(name, serverUrl);
+
+            toast('Стикер успешно создан!');
+
+            modal.hidden = true;
+            modal.setAttribute('aria-hidden', 'true');
+            form.reset();
+            previewBlock.hidden = true;
+            if (previewImg) previewImg.src = '';
+
+            if (typeof loadSettingsStickers === 'function') {
+                const stickers = await loadSettingsStickers();
+                renderSettingsStickers(stickers);
+            }
+        } catch (error) {
+            console.error(error);
+            alert(`Ошибка: ${error.message}`);
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Создать';
+        }
+    });
+
+    const closeBtns = modal.querySelectorAll('.modal__close, #sticker-create-cancel, .modal__overlay');
+    closeBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault?.();
+            modal.hidden = true;
+            modal.setAttribute('aria-hidden', 'true');
+            form.reset();
+            previewBlock.hidden = true;
+            if (previewImg) previewImg.src = '';
+        });
+    });
+}
+
+
+async function uploadStickerImage(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch('/api/stickers/upload-image', {
+        method: 'POST',
+        body: formData,
+    });
+
+    if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.detail || 'Ошибка загрузки файла');
+    }
+
+    return await response.json();
+}
+
+
+async function createStickerRecord(name, url) {
+    const response = await fetch('/api/stickers', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ name, url })
+    });
+
+    if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.detail || 'Ошибка сохранения стикера');
+    }
+
+    return await response.json();
+}
+
+
+async function deleteSticker(id) {
+    try {
+        const response = await fetch(`/api/stickers/${id}`, {
+            method: 'DELETE',
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Не удалось удалить стикер');
+        }
+
+        toast('Стикер удален');
+    } catch (error) {
+        console.error('Ошибка удаления стикера:', error);
+        toast(`Ошибка: ${error.message}`);
+    }
+}
+
+
+async function reloadSettingsStickers() {
+    try {
+        const stickers = await loadSettingsStickers();
+        renderSettingsStickers(stickers);
+    } catch (err) {
+        console.error('Ошибка при перезагрузке стикеров:', err);
+        document.querySelector('#settings-body').innerHTML = '<p class="placeholder">Не удалось загрузить список стикеров</p>';
+    }
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     initTabs();
@@ -2981,6 +3223,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initStickerSelector();
     loadStickerCatalog();
+
+    initStickerCreateModal();
+
 
 })
 
