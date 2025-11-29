@@ -1,3 +1,4 @@
+import logging
 import uuid
 from pathlib import Path
 from typing import List
@@ -7,8 +8,11 @@ from sqlalchemy.orm import Session
 
 from backend.models import Sticker, StickerResponse, StickerCreate
 from backend.scripts.database import get_db
+from backend.services.delete_file import delete_sticker_file_from_disk
 
 router = APIRouter()
+
+logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 STATIC_DIR = BASE_DIR / "static"
@@ -24,8 +28,12 @@ def get_stickers_catalog(db: Session = Depends(get_db)):
         return stickers
 
     except Exception as e:
-        print(f"Ошибка при получении каталога стикеров: {e}")
-        return []
+        logger.exception("Ошибка при получении каталога стикеров.")
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Не удалось получить данные каталога стикеров из-за внутренней ошибки сервера."
+        )
 
 
 @router.get("/api/sticker/{sticker_id}", response_model=StickerResponse)
@@ -34,7 +42,7 @@ async def get_sticker_url(sticker_id: int, db: Session = Depends(get_db)):
     if not sticker:
         raise HTTPException(status_code=404, detail="Стикер не найден")
 
-    return StickerResponse(id=sticker.id, url=sticker.url, name=sticker.name)
+    return sticker
 
 
 @router.post("/api/stickers/upload-image")
@@ -61,6 +69,8 @@ async def upload_sticker_image(file: UploadFile = File(...)):
         with open(target_path, "wb") as f:
             f.write(contents)
     except Exception:
+        logger.exception(f"Не удалось записать файл стикера {filename} по пути {target_path}")
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Не удалось сохранить файл",
@@ -81,18 +91,25 @@ def delete_sticker(sticker_id: int, db: Session = Depends(get_db)):
             detail=f"Стикер с ID {sticker_id} не найден",
         )
 
+    file_url = sticker_to_delete.url
+
     try:
         db.delete(sticker_to_delete)
         db.commit()
 
-        return {"detail": "Стикер успешно удален"}
-
     except Exception as e:
+        logger.exception(f"Ошибка БД при удалении стикера ID {sticker_id}.")
         db.rollback()
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Ошибка при удалении стикера: {str(e)}",
+            detail=f"Ошибка при удалении стикера",
         )
+
+    delete_sticker_file_from_disk(file_url)
+
+    return None
+
 
 
 @router.post("/api/stickers", response_model=StickerResponse, status_code=status.HTTP_201_CREATED)
@@ -105,5 +122,9 @@ def create_sticker_data(sticker: StickerCreate, db: Session = Depends(get_db)):
         return new_sticker
 
     except Exception as e:
+        logger.exception("Ошибка при создании записи стикера в БД")
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Ошибка при создании записи стикера в БД: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Не удалось создать запись стикера из-за внутренней ошибки сервера"
+        )

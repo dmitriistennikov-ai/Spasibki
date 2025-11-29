@@ -1,14 +1,15 @@
+import asyncio
 import uuid
 from pathlib import Path
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status, UploadFile, File
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from backend.models import Item, ItemCreate, ItemUpdate, ItemResponse, BuyTransaction, BuyTransactionResponse, \
-    BuyTransactionCreate, Employee
+from backend.models import Item, ItemCreate, ItemUpdate, ItemResponse, BuyTransactionResponse, \
+    BuyTransactionCreate
 from backend.scripts.database import get_db
+from backend.services.item_service import execute_buy_transaction
 
 router = APIRouter()
 
@@ -28,47 +29,25 @@ async def get_show_items(db: Session = Depends(get_db)):
 
     return available_items
 
-
 @router.post("/api/buy-item", response_model=BuyTransactionResponse)
 async def buy_item(item: BuyTransactionCreate, db: Session = Depends(get_db)):
 
-    needed_item = (db.query(Item).filter(
-        Item.id == item.item_id,
-        Item.stock > 0,
-        Item.is_active == True
-    ).first())
-
-    if not needed_item:
-        raise HTTPException(status_code=400, detail="Данный товар недоступен")
-
-    buyer = db.query(Employee).filter(Employee.bitrix_id == item.buyer_id).first()
-
-    if not buyer:
-        raise HTTPException(status_code=404, detail="Покупатель не найден")
-
-    current_balance = buyer.coins
-
-    if current_balance < item.amount_spent:
-        raise HTTPException(status_code=400, detail="Недостаточно средств")
-
     try:
-        needed_item.stock -= 1
-        buyer.coins -= item.amount_spent
-        new_buy_transaction = BuyTransaction(**item.model_dump())
-        db.add(new_buy_transaction)
-        db.commit()
-        db.refresh(new_buy_transaction)
+        new_transaction = await asyncio.to_thread(
+            execute_buy_transaction,
+            db,
+            item.item_id,
+            item.buyer_id,
+            item.amount_spent
+        )
 
-        return new_buy_transaction
+        return new_transaction
 
-    except SQLAlchemyError as e:
-        db.rollback()
-        print("DB error in /api/buy-item:", repr(e))
-        raise HTTPException(status_code=500, detail=f"Ошибка БД при покупке: {e}")
+    except HTTPException as e:
+        raise e
 
     except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail="Ошибка при покупке")
+        raise HTTPException(status_code=500, detail="Ошибка покупки")
 
 
 @router.post("/api/items", response_model=ItemResponse, status_code=status.HTTP_201_CREATED)

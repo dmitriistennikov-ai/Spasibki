@@ -1,27 +1,18 @@
-from typing import List, Optional, Dict
+import logging
+from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
 from sqlalchemy import func, or_, desc
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from backend.models import Game, Employee, LikeTransaction, GameResponse, GameUpdate, GameCreate
+from backend.models import Game, Employee, LikeTransaction, GameResponse, GameUpdate, GameCreate, GameRatingRow, \
+    OverallRatingResponse
 from backend.scripts.database import get_db
 
 router = APIRouter()
 
-
-class GameRatingRow(BaseModel):
-    bitrix_id: int
-    photo_url: Optional[str]
-    fio: str
-    received: int
-    sent: int
-
-    class Config:
-        from_attributes = True
-
+logger = logging.getLogger(__name__)
 
 # ---------- Вспомогательная функция рейтинга ----------
 def calc_game_rating(game_id: int, db: Session) -> List[GameRatingRow]:
@@ -162,7 +153,7 @@ def calc_overall_rating(db: Session, page: int, limit: int):
     }
 
 
-@router.get("/api/rating/overall", response_model=Dict)
+@router.get("/api/rating/overall", response_model=OverallRatingResponse)
 def get_overall_rating_route(
         page: int = 1,
         limit: int = 5,
@@ -239,11 +230,17 @@ def update_game(game_id: int, payload: GameUpdate, db: Session = Depends(get_db)
             detail="Игра не найдена",
         )
 
-    if payload.game_start >= payload.game_end:
+    data = payload.model_dump(exclude_unset=True)
+
+    if (data.get("game_start") is not None and data.get("game_end") is not None and
+            data.get("game_start") >= data.get("game_end")):
         raise HTTPException(status_code=400, detail="Дата начала должна быть раньше даты завершения")
 
-    data = payload.dict(exclude_unset=True)
+    elif data.get("game_start") is not None and data.get("game_start") >= game.game_end:
+        raise HTTPException(status_code=400, detail="Новая дата начала должна быть раньше текущей даты завершения")
 
+    elif data.get("game_end") is not None and data.get("game_end") <= game.game_start:
+        raise HTTPException(status_code=400, detail="Новая дата завершения должна быть позже текущей даты начала")
 
     if data.get("game_is_active") is True:
         db.query(Game).filter(
@@ -259,6 +256,7 @@ def update_game(game_id: int, payload: GameUpdate, db: Session = Depends(get_db)
         db.refresh(game)
         return game
     except Exception:
+        logger.exception(f"Ошибка БД при обновлении игры ID {game_id}.")
         db.rollback()
         raise HTTPException(
             status_code=500,
@@ -286,6 +284,7 @@ def delete_game(game_id: int, db: Session = Depends(get_db)):
         db.delete(game)
         db.commit()
     except IntegrityError:
+        logger.exception(f"Ошибка БД при удалении игры ID {game_id}.")
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -295,17 +294,20 @@ def delete_game(game_id: int, db: Session = Depends(get_db)):
     return
 
 
-@router.post("/api/games")
+@router.post("/api/games", status_code=status.HTTP_201_CREATED, response_model=GameResponse)
 def create_game(game_data: GameCreate, db: Session = Depends(get_db)):
+    if game_data.game_start >= game_data.game_end:
+        raise HTTPException(status_code=400, detail="Дата начала должна быть раньше даты завершения")
+
+    if game_data.game_is_active:
+        existing_active_game = db.query(Game).filter(Game.game_is_active.is_(True)).first()
+        if existing_active_game:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Нельзя создать активную игру. Уже есть активная игра: '{existing_active_game.name}'"
+            )
+
     try:
-        if game_data.game_is_active:
-            existing_active_game = db.query(Game).filter(Game.game_is_active == True).first()
-            if existing_active_game:
-                raise HTTPException(status_code=400, detail=f"Нельзя создать активную игру. Уже есть активная игра: '{existing_active_game.name}'")
-
-        if game_data.game_start >= game_data.game_end:
-            raise HTTPException(status_code=400, detail="Дата начала должна быть раньше даты окончания")
-
         new_game = Game(**game_data.model_dump())
         db.add(new_game)
         db.commit()
@@ -313,9 +315,11 @@ def create_game(game_data: GameCreate, db: Session = Depends(get_db)):
 
         return new_game
 
-    except HTTPException:
-        raise
-    except Exception as e:
+    except Exception:
+        logger.exception("Ошибка при создании игры в БД.")
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Ошибка при создании игры: {str(e)}")
 
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Ошибка при создании игры из-за внутренней проблемы сервера."
+        )

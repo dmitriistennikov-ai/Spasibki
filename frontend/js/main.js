@@ -2595,8 +2595,11 @@ async function loadStickerCatalog() {
 
     try {
         const res = await fetch('/api/stickers');
-        if (!res.ok) throw new Error('Не удалось загрузить каталог стикеров');
-
+        if (!res.ok) {
+            const errorData = await res.json()
+            const errorMessage = errorData.detail || 'Общая ошибка';
+            throw new Error(errorMessage);
+        }
         stickerCatalog = await res.json();
         renderStickerSelector(stickerCatalog);
     } catch (e) {
@@ -2696,7 +2699,7 @@ async function loadPurchasesForSettings(page = 1, limit = 10) {
     try {
         const response = await fetch(`/api/purchases?page=${page}&limit=${limit}`);
         if (!response.ok) {
-            throw new Error("Не удалось загрузить покупок");
+            throw new Error("Не удалось загрузить покупки");
         }
 
         const data = await response.json();

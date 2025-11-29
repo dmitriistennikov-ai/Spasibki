@@ -1,14 +1,15 @@
-from backend.bitrix_sdk.python_current_SDK import BitrixCurrent
-from backend.services.db_get_tokens import get_tokens
+import asyncio
+
 from sqlalchemy.orm import Session
 
+from backend.bitrix_sdk.python_current_SDK import BitrixCurrent
+from backend.services.db_get_tokens import get_tokens
+
+
 async def send_bitrix_notification(from_user_id: int, to_user_id: int, db: Session):
-    """
-    Отправляет системное уведомление пользователю Bitrix24.
-    """
-    tokens = get_tokens(from_user_id, db)
+    tokens = await asyncio.to_thread(get_tokens, from_user_id, db)
+
     if not tokens:
-        print("❌ Нет токенов для пользователя:", from_user_id)
         return None
 
     bx = BitrixCurrent(

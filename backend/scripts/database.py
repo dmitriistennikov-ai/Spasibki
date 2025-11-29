@@ -22,14 +22,6 @@ DATABASE_URL = URL.create(
     database=DB_NAME,
 )
 
-print("DB_USER:", repr(DB_USER))
-print("DB_PASSWORD:", repr(DB_PASSWORD))
-print("DB_HOST:", repr(DB_HOST))
-print("DB_PORT:", repr(DB_PORT))
-print("DB_NAME:", repr(DB_NAME))
-print("DATABASE_URL:", DATABASE_URL)
-
-
 engine = create_engine(
     DATABASE_URL,
     pool_pre_ping=True,

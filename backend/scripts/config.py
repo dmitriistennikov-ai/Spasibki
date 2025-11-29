@@ -1,8 +1,20 @@
+import logging
 import os
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 load_dotenv()
+
+BASE_DIR = Path(__file__).resolve().parents[3]
+STATIC_DIR = BASE_DIR / "static"
+STICKERS_UPLOAD_DIR_DEFAULT = STATIC_DIR / "stickers"
+
+STICKERS_UPLOAD_DIR_DEFAULT.mkdir(parents=True, exist_ok=True)
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+logger.info(f"Папка для стикеров: {STICKERS_UPLOAD_DIR_DEFAULT}")
+
 
 class Settings:
     APP_NAME = os.getenv("APP_NAME", "Bitrix24 Likes App")
@@ -10,8 +22,13 @@ class Settings:
     DB_PATH = os.getenv("DB_PATH", "./app.db")
 
     @property
+    def STICKERS_UPLOAD_DIR(self):
+        return STICKERS_UPLOAD_DIR_DEFAULT
+
+    @property
     def DATABASE_URL(self):
         path = Path(self.DB_PATH).resolve()
         return f"sqlite+aiosqlite:///{path}"
+
 
 settings = Settings()

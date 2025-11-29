@@ -222,6 +222,22 @@ class GameCreate(BaseModel):
     setting_limitToOneUser: int = Field(default=2, ge=1, le=100, description="Максимальное количество спасибок одному пользователю")
 
 
+class GameRatingRow(BaseModel):
+    bitrix_id: int
+    photo_url: Optional[str]
+    fio: str
+    received: int
+    sent: int
+
+    class Config:
+        from_attributes = True
+
+
+class OverallRatingResponse(BaseModel):
+    rating: List[GameRatingRow]
+    total_pages: int
+
+
 # --- 5. Таблица Товар ---
 class Item(Base):
     __tablename__ = "items"
