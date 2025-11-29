@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 
 from fastapi import HTTPException, status
 from sqlalchemy.exc import SQLAlchemyError
@@ -78,4 +79,39 @@ def execute_buy_transaction(db: Session, item_id: int, buyer_id: int, amount_spe
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Неизвестная ошибка сервера."
+        )
+
+
+def create_item_service(db: Session, item_data: dict) -> Item:
+    try:
+        new_item = Item(**item_data)
+        db.add(new_item)
+        db.commit()
+        db.refresh(new_item)
+        return new_item
+
+    except ValueError as e:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Некорректные данные: {str(e)}")
+
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(f"SQLAlchemy error при создании товара: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Ошибка БД при создании товара")
+    except Exception as e:
+        db.rollback()
+        logger.exception(f"Неизвестная ошибка при создании товара: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Ошибка при создании товара")
+
+
+def save_file(target_path: Path, contents: bytes):
+    try:
+        with open(target_path, "wb") as f:
+            f.write(contents)
+    except Exception as e:
+        logger.error(f"Ошибка записи файла {target_path}: {repr(e)}")
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Не удалось сохранить файл",
         )

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from backend.models import Item, ItemCreate, ItemUpdate, ItemResponse, BuyTransactionResponse, \
     BuyTransactionCreate
 from backend.scripts.database import get_db
-from backend.services.item_service import execute_buy_transaction
+from backend.services.item_service import execute_buy_transaction, create_item_service, save_file
 
 router = APIRouter()
 
@@ -51,19 +51,16 @@ async def buy_item(item: BuyTransactionCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/api/items", response_model=ItemResponse, status_code=status.HTTP_201_CREATED)
-def create_item(item: ItemCreate, db: Session = Depends(get_db)):
+async def create_item(item: ItemCreate, db: Session = Depends(get_db)):
+    item_data = item.model_dump()
+
     try:
-        new_item = Item(**item.model_dump())
-        db.add(new_item)
-        db.commit()
-        db.refresh(new_item)
+        new_item = await asyncio.to_thread(create_item_service, db, item_data)
+
         return new_item
-    except ValueError as e:
-        db.rollback()
-        raise HTTPException(status_code=400, detail=f"Некорректные данные: {str(e)}")
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Ошибка при создании товара: {str(e)}")
+
+    except HTTPException:
+        raise
 
 
 @router.get("/api/items", response_model=List[ItemResponse])
@@ -123,11 +120,9 @@ def delete_item(
 
 @router.post("/api/items/upload-image")
 async def upload_item_image(file: UploadFile = File(...)):
+
     allowed_content_types = {
-        "image/jpeg",
-        "image/png",
-        "image/webp",
-        "image/gif",
+        "image/jpeg", "image/png", "image/webp", "image/gif",
     }
 
     if file.content_type not in allowed_content_types:
@@ -141,14 +136,12 @@ async def upload_item_image(file: UploadFile = File(...)):
     target_path = ITEMS_UPLOAD_DIR / filename
 
     contents = await file.read()
+
     try:
-        with open(target_path, "wb") as f:
-            f.write(contents)
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Не удалось сохранить файл",
-        )
+        await asyncio.to_thread(save_file, target_path, contents)
+
+    except HTTPException:
+        raise
 
     public_url = f"/static/uploads/items/{filename}"
 
