@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
 from backend.scripts.database import get_db
 from backend.services.game_service import get_active_game, get_received_likes_count, get_remaining_likes
 
@@ -20,12 +21,6 @@ async def get_likes_info(
         bitrix_id: int,
         db: Session = Depends(get_db)
 ):
-    """
-    Получить информацию о лайках для сотрудника:
-    - полученные лайки в активной игре
-    - остаток лайков для отправки
-    - информация об активной игре
-    """
     active_game = get_active_game(db)
 
     if not active_game:
@@ -39,7 +34,7 @@ async def get_likes_info(
 
     received_likes = get_received_likes_count(db, bitrix_id, active_game.id)
     remaining_likes = get_remaining_likes(db, bitrix_id, active_game)
-    print(received_likes, remaining_likes)
+
     return LikesInfoResponse(
         received_likes=received_likes,
         remaining_likes=remaining_likes,

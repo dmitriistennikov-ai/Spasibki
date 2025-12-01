@@ -13,7 +13,9 @@ STICKERS_UPLOAD_DIR_DEFAULT = STATIC_DIR / "stickers"
 STICKERS_UPLOAD_DIR_DEFAULT.mkdir(parents=True, exist_ok=True)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-logger.info(f"Папка для стикеров: {STICKERS_UPLOAD_DIR_DEFAULT}")
+
+
+# logger.info(f"Папка для стикеров: {STICKERS_UPLOAD_DIR_DEFAULT}")
 
 
 class Settings:
