@@ -1,38 +1,26 @@
-version: "3.9"
+version: '3.8'
 
 services:
+  # Сервис базы данных
   db:
-    image: postgres:16
-    container_name: spasibki_db
-    ports:
-      - "127.0.0.1:5432:5432"
-    restart: unless-stopped
+    image: postgres:15  # Можно указать нужную версию, например 16
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # Сохраняем данные при перезапуске
     env_file:
       - .env
-    environment:
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-    volumes:
-      - db_data:/var/lib/postgresql/data
-    networks:
-      - spasibki_net
 
-  backend:
+  # Твоё приложение
+  app:
     build: .
-    container_name: spasibki_backend
-    restart: unless-stopped
+    restart: always
+    ports:
+      - "8000:8000" # Проброс порта наружу
     env_file:
       - .env
     depends_on:
-      - db
-    ports:
-      - "8000:8000"
-    networks:
-      - spasibki_net
+      - db # Ждать запуска базы
 
+# Объявляем том для хранения данных БД
 volumes:
-  db_data:
-
-networks:
-  spasibki_net:
+  postgres_data:

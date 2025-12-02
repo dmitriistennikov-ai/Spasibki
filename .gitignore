@@ -9,6 +9,7 @@ __pycache__/
 .idea/
 *.iml
 
+
 # Виртуальные окружения
 venv/
 env/
@@ -25,3 +26,8 @@ env/
 # БД
 *.db
 *.sqlite
+
+# Docker
+.env
+*.env
+!/.env.example

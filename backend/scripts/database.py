@@ -7,11 +7,11 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 
 load_dotenv()
 
-DB_USER = os.getenv("DB_USER", "postgres")
+DB_USER = os.getenv("DB_USER", "spasibki_user")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "123987")
 DB_HOST = os.getenv("DB_HOST", "localhost")
-DB_PORT = os.getenv("DB_PORT", "5433")
-DB_NAME = os.getenv("DB_NAME", "spasibki")
+DB_PORT = os.getenv("DB_PORT", "5432")
+DB_NAME = os.getenv("DB_NAME", "spasibki_db")
 
 DATABASE_URL = URL.create(
     drivername="postgresql+psycopg2",
