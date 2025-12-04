@@ -1175,7 +1175,7 @@ function renderSettingsGames(games) {
     if (!body) return;
 
     if (!games || !games.length) {
-        content.innerHTML = '<p class="placeholder">Игр еще нет</p>';
+        body.innerHTML = '<p class="placeholder">Игр еще нет</p>';
         return;
     }
 
