@@ -1,0 +1,41 @@
+name: Deploy to stage
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Чекаутим репозиторий на сам runner
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Основной шаг: зайти по SSH на тестовый сервер и выполнить команды деплоя
+      - name: Deploy to stage via SSH
+        uses: appleboy/ssh-action@v1.2.4
+        with:
+          host: ${{ secrets.STAGE_HOST }}          
+          username: ${{ secrets.STAGE_USER }}      
+          key: ${{ secrets.STAGE_SSH_KEY }}        
+          port: 22                               
+          script: |
+            set -e  # если любая команда упадёт — остановить скрипт с ошибкой
+
+            echo "[CI] Переключаемся в директорию проекта"
+            cd ${{ secrets.STAGE_PROJECT_PATH }}
+
+            echo "[CI] Обновляем код из ветки develop"
+            git fetch origin
+            git reset --hard origin/develop
+
+            echo "[CI] Пересобираем и перезапускаем контейнеры"
+            docker compose up -d --build
+
+            echo "[CI] Чистим старые образы"
+            docker image prune -f
+
+            echo "[CI] Готово!"
