@@ -19,7 +19,10 @@ services:
     env_file:
       - .env
     depends_on:
-      - db # Ждать запуска базы
+      - db
+    volumes:
+      - ./static/stickers:/app/static/stickers
+      - ./static/uploads/items:/app/static/uploads/items
 
 # Объявляем том для хранения данных БД
 volumes:
