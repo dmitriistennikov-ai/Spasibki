@@ -2369,22 +2369,9 @@ table__empty {
 
 #thanks-modal .modal__title {
   color: var(--accent-orange);
-  position: relative;
-  padding-left: 20px;
 }
 
-#thanks-modal .modal__title::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 10px;
-  height: 10px;
-  background-color: var(--accent-orange);
-  border-radius: 50%;
-  opacity: 0.8;
-}
+
 
 #thanks-modal select#thanks-to:focus,
 #thanks-modal textarea#thanks-message:focus {
