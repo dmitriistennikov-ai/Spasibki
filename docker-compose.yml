@@ -3,14 +3,14 @@ version: '3.8'
 services:
   # Сервис базы данных
   db:
-    image: postgres:15  # Можно указать нужную версию, например 16
+    image: postgres:16
     restart: always
     volumes:
       - postgres_data:/var/lib/postgresql/data # Сохраняем данные при перезапуске
     env_file:
       - .env
 
-  # Твоё приложение
+  # Приложение
   app:
     build: .
     restart: always
