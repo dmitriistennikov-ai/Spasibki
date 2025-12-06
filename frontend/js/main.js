@@ -123,7 +123,6 @@ async function openThanksModal() {
 
     if (!modal || !select || !dropdown || !trigger || !list) return;
 
-    // --- создаём/находим поле поиска ---
     let searchInput = dropdown.querySelector('.thanks-to-dropdown__search');
     if (!searchInput) {
         searchInput = document.createElement('input');
@@ -131,7 +130,7 @@ async function openThanksModal() {
         searchInput.className = 'thanks-to-dropdown__search';
         searchInput.placeholder = 'Начните вводить имя...';
         searchInput.autocomplete = 'off';
-        searchInput.hidden = true; // по умолчанию спрячем, покажем вместе со списком
+        searchInput.hidden = true; 
         dropdown.insertBefore(searchInput, list);
     } else {
         searchInput.value = '';
@@ -148,10 +147,8 @@ async function openThanksModal() {
 
     try {
         const users = await fetchUsers();
-        // сохраним пользователей на дропдауне, чтобы поиск мог фильтровать
         dropdown._users = users;
 
-        // — helper для построения <li> по списку пользователей —
         const buildListHtml = (usersToRender) => usersToRender.map(u => {
             const fullName = [u.name, u.lastname].filter(Boolean).join(' ');
             const isDisabled = userId && String(u.bitrix_id) === String(userId);
@@ -172,8 +169,6 @@ async function openThanksModal() {
                 </li>
             `;
         }).join('');
-
-        // наполняем скрытый <select> (как и раньше)
         const selectOptions = ['<option value="" disabled selected>Выберите сотрудника…</option>']
             .concat(
                 users.map(u => {
@@ -183,14 +178,11 @@ async function openThanksModal() {
                 })
             );
         select.innerHTML = selectOptions.join('');
-
-        // наполняем dropdown-список
         list.innerHTML = buildListHtml(users);
 
         trigger.textContent = 'Выберите сотрудника…';
 
         if (!trigger.dataset.dropdownInit) {
-            // открыть/закрыть список
             trigger.addEventListener('click', () => {
                 const isOpen = !list.hidden;
                 list.hidden = isOpen;
@@ -198,12 +190,10 @@ async function openThanksModal() {
                 trigger.setAttribute('aria-expanded', String(!isOpen));
 
                 if (!isOpen) {
-                    // только что открыли → фокус в поиске
                     searchInput.focus();
                 }
             });
 
-            // фильтрация по вводу
             searchInput.addEventListener('input', () => {
                 const query = searchInput.value.trim().toLowerCase();
                 const allUsers = dropdown._users || [];
@@ -221,7 +211,6 @@ async function openThanksModal() {
                 list.innerHTML = buildListHtml(filtered);
             });
 
-            // выбор сотрудника по клику
             list.addEventListener('click', (event) => {
                 const item = event.target.closest('.thanks-to-dropdown__item');
                 if (!item) return;
@@ -242,7 +231,6 @@ async function openThanksModal() {
                 trigger.setAttribute('aria-expanded', 'false');
             });
 
-            // клик вне дропдауна — закрываем
             document.addEventListener('click', (event) => {
                 if (!modal.contains(event.target)) return;
                 if (!dropdown.contains(event.target)) {
