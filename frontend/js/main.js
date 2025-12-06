@@ -962,7 +962,7 @@ function renderShopItems(items) {
     if (!root) return;
 
     if (!items || !items.length) {
-        root.innerHTML = '<p class="shop-empty">Еще нет доступных товаров</p>';
+        root.innerHTML = '<p class="shop-empty">Нет доступных товаров</p>';
         return;
     }
 
