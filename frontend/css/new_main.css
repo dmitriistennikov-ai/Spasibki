@@ -462,6 +462,24 @@ body {
     overflow: hidden;
 }
 
+#thanks-modal .thanks-to-dropdown__search {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  font: inherit;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background-color: var(--surface-2); /* как у textarea/inputs */
+  color: var(--fg);
+}
+
+#thanks-modal .thanks-to-dropdown__search:focus {
+  outline: none;
+  border-color: var(--accent-orange);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent-orange) 40%, transparent);
+}
+
 .thanks-recipient {
     margin-top: 8px;
     display: flex;
@@ -2459,3 +2477,5 @@ table__empty {
 #overall-rating-container .table-wrap {
   margin-top: 0;
 }
+
+
