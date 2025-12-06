@@ -797,15 +797,36 @@ function renderGameRating(rows, containerId = 'game-modal-rating') {
     const root = document.getElementById(containerId);
     if (!root) return;
 
-    const emptyMessage = containerId === 'overall-rating-container'
+    const isOverall = containerId === 'overall-rating-container';
+
+    const emptyMessage = isOverall
         ? 'В общем рейтинге ещё нет Спасибок'
         : 'В этой игре ещё нет Спасибок';
 
+    // Пустое состояние
     if (!rows || !rows.length) {
-        root.innerHTML = `<p class="game-rating__empty">${emptyMessage}</p>`;
+        if (isOverall) {
+            // Для блока "Общий рейтинг" — оформляем как таблицу, чтобы
+            // текст выглядел так же, как в "Завершённых играх"
+            root.innerHTML = `
+                <div class="table-wrap">
+                    <table class="table">
+                        <tbody>
+                            <tr>
+                                <td class="table__empty" colspan="4">${emptyMessage}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        } else {
+            // Для рейтинга в модалке (и других контейнеров) оставляем компактный вариант
+            root.innerHTML = `<p class="game-rating__empty">${emptyMessage}</p>`;
+        }
         return;
     }
 
+    // Непустой рейтинг — как и было
     const header = `
         <div class="game-rating__header">
             <span class="game-rating__col game-rating__col--index">№</span>
@@ -2775,7 +2796,7 @@ function renderSettingsStickers(stickers) {
     if (!bodyEl) return;
 
     if (stickers.length === 0) {
-        bodyEl.innerHTML = '<p class="placeholder">В каталоге нет стикеров.</p>';
+        bodyEl.innerHTML = '<p class="placeholder">Еще нет стикеров</p>';
         return;
     }
 

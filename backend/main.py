@@ -1,6 +1,7 @@
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends
+from sqlalchemy.orm import Session
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -14,7 +15,7 @@ from backend.api.purchase import router as purchase_router
 from backend.api.stickers import router as stickers_router
 from backend.api.user import router as user_router
 from backend.api.users import router as users_router
-from backend.scripts.database import Base, engine, SessionLocal
+from backend.scripts.database import Base, engine, SessionLocal, get_db
 from backend.services.bitrix_user import get_current_user
 from backend.services.bitrix_user_photo import get_user_photo
 from backend.services.db_save_employee import save_or_update_employees
@@ -46,7 +47,10 @@ STATIC_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 @app.post("/")
-async def root(request: Request):
+async def root(
+    request: Request,
+    db: Session = Depends(get_db),
+):
     form = await request.form()
     data = dict(form)
     domain = data.get("DOMAIN") or request.query_params.get("DOMAIN")
@@ -62,24 +66,21 @@ async def root(request: Request):
     current_user_photo = await get_user_photo(auth_id, refresh_id, domain, user_id)
     current_user_data["PERSONAL_PHOTO"] = current_user_photo
 
-    db = SessionLocal()
     try:
         save_or_update_employees([current_user_data], db)
-        save_or_update_token(domain, user_id, member_id, auth_id, refresh_id, expires_in, status, db)
+        save_or_update_token(
+            domain, user_id, member_id, auth_id, refresh_id, expires_in, status, db
+        )
         db.commit()
-
     except Exception as e:
         db.rollback()
         raise e
-
-    finally:
-        db.close()
 
     html = f"""
         <script>
           window.location.href = '/frontend/base.html?user_id={user_id}&domain={domain}';
         </script>
-        """
+    """
 
     return HTMLResponse(content=html)
 

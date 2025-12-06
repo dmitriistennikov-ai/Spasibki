@@ -21,7 +21,7 @@ html {
 body {
     min-height: 100vh;
     margin: 0;
-    font: 15px/1.5 system-ui, ...;
+    font: 15px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     background-color: var(--bg);
     color: var(--fg);
     overflow-y: auto;
@@ -2371,8 +2371,6 @@ table__empty {
   color: var(--accent-orange);
 }
 
-
-
 #thanks-modal select#thanks-to:focus,
 #thanks-modal textarea#thanks-message:focus {
   border-color: var(--accent-orange);
@@ -2449,4 +2447,14 @@ table__empty {
     color-mix(in oklab, var(--accent-orange) 8%, var(--surface)),
     var(--surface)
   );
+}
+
+#overall-rating-container.game-rating {
+  padding: 0;
+  background: transparent;
+  border: none;
+}
+
+#overall-rating-container .table-wrap {
+  margin-top: 0;
 }
