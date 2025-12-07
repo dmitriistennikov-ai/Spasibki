@@ -109,6 +109,20 @@ def delete_item(
     if db_item is None:
         raise HTTPException(status_code=404, detail="Товар не найден")
 
+    has_purchases = (
+        db.query(BuyTransaction)
+        .filter(BuyTransaction.item_id == item_id)
+        .first()
+        is not None
+    )
+
+    if has_purchases:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Нельзя удалить товар: по нему уже есть покупки. "
+                   "Сделайте товар неактивным в настройках товара.",
+        )
+
     try:
         db.delete(db_item)
         db.commit()
