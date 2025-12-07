@@ -22,14 +22,26 @@ jobs:
           port: 22                               
           script: |
             set -e
-
             cd ${{ secrets.STAGE_PROJECT_PATH }}
             git fetch origin
             git checkout develop
             git pull origin develop
             docker compose up -d --build
 
-            echo "⏳ Проверяем, что приложение поднялось на stage..."
+            echo "⏳ Ждём, пока приложение поднимется на stage..."
 
-            curl -f http://localhost:8000/docs > /dev/null
-            echo "✅ Stage OK: /docs отвечает"
+            max_retries=10
+            i=1
+            while [ $i -le $max_retries ]; do
+              if curl -fsS http://localhost:8000/docs > /dev/null; then
+                echo "✅ Stage OK: /docs отвечает (попытка $i)"
+                exit 0
+              fi
+              echo "Пока не отвечает, попытка $i/$max_retries. Ждём 3 секунды..."
+              i=$((i+1))
+              sleep 3
+            done
+
+            echo "❌ Приложение так и не ответило. Покажем логи app:"
+            docker compose logs app --tail=100 || true
+            exit 1
