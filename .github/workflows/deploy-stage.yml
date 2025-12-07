@@ -23,7 +23,7 @@ jobs:
           script: |
             set -e
 
-            cd ${{ secrets.STAGE_APP_DIR }}
+            cd ${{ secrets.STAGE_PROJECT_PATH }}
             git fetch origin
             git checkout develop
             git pull origin develop
