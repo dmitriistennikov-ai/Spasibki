@@ -1,7 +1,7 @@
 name: Promote develop to master
 
 on:
-  workflow_dispatch:   
+  workflow_dispatch:
 
 jobs:
   promote:
@@ -14,7 +14,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 
+          fetch-depth: 0
 
       - name: Configure git user
         run: |
@@ -35,20 +35,40 @@ jobs:
 
   deploy-prod:
     runs-on: ubuntu-latest
-    needs: promote   
+    needs: promote
 
     steps:
       - name: Deploy to prod via SSH
-        uses: appleboy/ssh-action@v1.0.0
+        uses: appleboy/ssh-action@v1.2.4
         with:
           host: ${{ secrets.PROD_SSH_HOST }}
           username: ${{ secrets.PROD_SSH_USER }}
           key: ${{ secrets.PROD_SSH_KEY }}
           port: 22
           script: |
+            set -e
+
             cd ${{ secrets.PROD_APP_DIR }}
             git fetch origin
             git checkout master
             git pull origin master
             docker compose up -d --build
+
+            echo "⏳ Ждём, пока приложение поднимется на prod..."
+
+            max_retries=10
+            i=1
+            while [ $i -le $max_retries ]; do
+              if curl -fsS http://localhost:8000/docs > /dev/null; then
+                echo "✅ Prod OK: /docs отвечает (попытка $i)"
+                exit 0
+              fi
+              echo "Пока не отвечает, попытка $i/$max_retries. Ждём 3 секунды..."
+              i=$((i+1))
+              sleep 3
+            done
+
+            echo "❌ Приложение так и не ответило. Покажем логи app:"
+            docker compose logs app --tail=100 || true
+            exit 1
 
