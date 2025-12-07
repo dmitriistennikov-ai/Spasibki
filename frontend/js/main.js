@@ -123,6 +123,20 @@ async function openThanksModal() {
 
     if (!modal || !select || !dropdown || !trigger || !list) return;
 
+    let searchInput = dropdown.querySelector('.thanks-to-dropdown__search');
+    if (!searchInput) {
+        searchInput = document.createElement('input');
+        searchInput.type = 'text';
+        searchInput.className = 'thanks-to-dropdown__search';
+        searchInput.placeholder = 'Начните вводить имя...';
+        searchInput.autocomplete = 'off';
+        searchInput.hidden = true; 
+        dropdown.insertBefore(searchInput, list);
+    } else {
+        searchInput.value = '';
+        searchInput.hidden = true;
+    }
+
     select.innerHTML = '<option value="" disabled selected>Загрузка…</option>';
     trigger.textContent = 'Загрузка…';
     trigger.setAttribute('aria-expanded', 'false');
@@ -133,18 +147,9 @@ async function openThanksModal() {
 
     try {
         const users = await fetchUsers();
+        dropdown._users = users;
 
-        const selectOptions = ['<option value="" disabled selected>Выберите сотрудника…</option>']
-            .concat(
-                users.map(u => {
-                    const label = [u.name, u.lastname].filter(Boolean).join(' ');
-                    const dis = userId && String(u.bitrix_id) === String(userId) ? ' disabled' : '';
-                    return `<option value="${u.bitrix_id}"${dis}>${label}</option>`;
-                })
-            );
-        select.innerHTML = selectOptions.join('');
-
-        list.innerHTML = users.map(u => {
+        const buildListHtml = (usersToRender) => usersToRender.map(u => {
             const fullName = [u.name, u.lastname].filter(Boolean).join(' ');
             const isDisabled = userId && String(u.bitrix_id) === String(userId);
             const disabledClass = isDisabled ? ' thanks-to-dropdown__item--disabled' : '';
@@ -164,6 +169,16 @@ async function openThanksModal() {
                 </li>
             `;
         }).join('');
+        const selectOptions = ['<option value="" disabled selected>Выберите сотрудника…</option>']
+            .concat(
+                users.map(u => {
+                    const label = [u.name, u.lastname].filter(Boolean).join(' ');
+                    const dis = userId && String(u.bitrix_id) === String(userId) ? ' disabled' : '';
+                    return `<option value="${u.bitrix_id}"${dis}>${label}</option>`;
+                })
+            );
+        select.innerHTML = selectOptions.join('');
+        list.innerHTML = buildListHtml(users);
 
         trigger.textContent = 'Выберите сотрудника…';
 
@@ -171,7 +186,29 @@ async function openThanksModal() {
             trigger.addEventListener('click', () => {
                 const isOpen = !list.hidden;
                 list.hidden = isOpen;
+                searchInput.hidden = isOpen;
                 trigger.setAttribute('aria-expanded', String(!isOpen));
+
+                if (!isOpen) {
+                    searchInput.focus();
+                }
+            });
+
+            searchInput.addEventListener('input', () => {
+                const query = searchInput.value.trim().toLowerCase();
+                const allUsers = dropdown._users || [];
+
+                const filtered = !query
+                    ? allUsers
+                    : allUsers.filter(u => {
+                        const fullName = [u.name, u.lastname]
+                            .filter(Boolean)
+                            .join(' ')
+                            .toLowerCase();
+                        return fullName.includes(query);
+                    });
+
+                list.innerHTML = buildListHtml(filtered);
             });
 
             list.addEventListener('click', (event) => {
@@ -190,6 +227,7 @@ async function openThanksModal() {
 
                 trigger.textContent = label;
                 list.hidden = true;
+                searchInput.hidden = true;
                 trigger.setAttribute('aria-expanded', 'false');
             });
 
@@ -197,6 +235,7 @@ async function openThanksModal() {
                 if (!modal.contains(event.target)) return;
                 if (!dropdown.contains(event.target)) {
                     list.hidden = true;
+                    searchInput.hidden = true;
                     trigger.setAttribute('aria-expanded', 'false');
                 }
             });
@@ -209,11 +248,13 @@ async function openThanksModal() {
         toast(e.message || 'Ошибка загрузки сотрудников');
         trigger.textContent = 'Ошибка загрузки';
         list.hidden = true;
+        searchInput.hidden = true;
     }
 
     modal.hidden = false;
     modal.setAttribute('aria-hidden', 'false');
 }
+
 
 
 function closeThanksModal() {
@@ -797,15 +838,36 @@ function renderGameRating(rows, containerId = 'game-modal-rating') {
     const root = document.getElementById(containerId);
     if (!root) return;
 
-    const emptyMessage = containerId === 'overall-rating-container'
+    const isOverall = containerId === 'overall-rating-container';
+
+    const emptyMessage = isOverall
         ? 'В общем рейтинге ещё нет Спасибок'
         : 'В этой игре ещё нет Спасибок';
 
+    // Пустое состояние
     if (!rows || !rows.length) {
-        root.innerHTML = `<p class="game-rating__empty">${emptyMessage}</p>`;
+        if (isOverall) {
+            // Для блока "Общий рейтинг" — оформляем как таблицу, чтобы
+            // текст выглядел так же, как в "Завершённых играх"
+            root.innerHTML = `
+                <div class="table-wrap">
+                    <table class="table">
+                        <tbody>
+                            <tr>
+                                <td class="table__empty" colspan="4">${emptyMessage}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        } else {
+            // Для рейтинга в модалке (и других контейнеров) оставляем компактный вариант
+            root.innerHTML = `<p class="game-rating__empty">${emptyMessage}</p>`;
+        }
         return;
     }
 
+    // Непустой рейтинг — как и было
     const header = `
         <div class="game-rating__header">
             <span class="game-rating__col game-rating__col--index">№</span>
@@ -941,7 +1003,7 @@ function renderShopItems(items) {
     if (!root) return;
 
     if (!items || !items.length) {
-        root.innerHTML = '<p class="shop-empty">Еще нет доступных товаров</p>';
+        root.innerHTML = '<p class="shop-empty">Нет доступных товаров</p>';
         return;
     }
 
@@ -1175,7 +1237,7 @@ function renderSettingsGames(games) {
     if (!body) return;
 
     if (!games || !games.length) {
-        content.innerHTML = '<p class="placeholder">Игр еще нет</p>';
+        body.innerHTML = '<p class="placeholder">Игр еще нет</p>';
         return;
     }
 
@@ -2775,7 +2837,7 @@ function renderSettingsStickers(stickers) {
     if (!bodyEl) return;
 
     if (stickers.length === 0) {
-        bodyEl.innerHTML = '<p class="placeholder">В каталоге нет стикеров.</p>';
+        bodyEl.innerHTML = '<p class="placeholder">Еще нет стикеров</p>';
         return;
     }
 

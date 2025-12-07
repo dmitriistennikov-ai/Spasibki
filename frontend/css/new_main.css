@@ -21,7 +21,7 @@ html {
 body {
     min-height: 100vh;
     margin: 0;
-    font: 15px/1.5 system-ui, ...;
+    font: 15px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     background-color: var(--bg);
     color: var(--fg);
     overflow-y: auto;
@@ -460,6 +460,24 @@ body {
     white-space: nowrap;
     text-overflow: ellipsis;
     overflow: hidden;
+}
+
+#thanks-modal .thanks-to-dropdown__search {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  font: inherit;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background-color: var(--surface-2); /* как у textarea/inputs */
+  color: var(--fg);
+}
+
+#thanks-modal .thanks-to-dropdown__search:focus {
+  outline: none;
+  border-color: var(--accent-orange);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent-orange) 40%, transparent);
 }
 
 .thanks-recipient {
@@ -1051,6 +1069,7 @@ table__empty {
   flex: 1;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -2369,21 +2388,6 @@ table__empty {
 
 #thanks-modal .modal__title {
   color: var(--accent-orange);
-  position: relative;
-  padding-left: 20px;
-}
-
-#thanks-modal .modal__title::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 10px;
-  height: 10px;
-  background-color: var(--accent-orange);
-  border-radius: 50%;
-  opacity: 0.8;
 }
 
 #thanks-modal select#thanks-to:focus,
@@ -2463,3 +2467,15 @@ table__empty {
     var(--surface)
   );
 }
+
+#overall-rating-container.game-rating {
+  padding: 0;
+  background: transparent;
+  border: none;
+}
+
+#overall-rating-container .table-wrap {
+  margin-top: 0;
+}
+
+
