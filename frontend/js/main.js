@@ -2791,7 +2791,7 @@ async function loadPurchasesForSettings(page = 1, limit = 10) {
                     <td>${esc(date)}</td>
                     <td>${esc(who)}</td>
                     <td>${esc(p.item_name)}</td>
-                    <td>${Number(p.amount_spent).toLocaleString('ru-RU')} ❤</td>
+                    <td>${Number(p.amount_spent).toLocaleString('ru-RU')}</td>
                 </tr>
             `;
         }).join('');
