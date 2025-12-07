@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status, UploadF
 from sqlalchemy.orm import Session
 
 from backend.models import Item, ItemCreate, ItemUpdate, ItemResponse, BuyTransactionResponse, \
-    BuyTransactionCreate
+    BuyTransactionCreate, BuyTransaction
 from backend.scripts.database import get_db
 from backend.services.item_service import execute_buy_transaction, create_item_service, save_file
 
@@ -108,6 +108,20 @@ def delete_item(
     db_item = db.query(Item).filter(Item.id == item_id).first()
     if db_item is None:
         raise HTTPException(status_code=404, detail="Товар не найден")
+
+    has_purchases = (
+        db.query(BuyTransaction)
+        .filter(BuyTransaction.item_id == item_id)
+        .first()
+        is not None
+    )
+
+    if has_purchases:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Нельзя удалить товар: по нему уже есть покупки. "
+                   "Сделайте товар неактивным в настройках товара.",
+        )
 
     try:
         db.delete(db_item)

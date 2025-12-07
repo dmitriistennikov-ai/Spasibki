@@ -4,6 +4,8 @@ services:
   # Сервис базы данных
   db:
     image: postgres:16
+    ports:
+      - "15432:5432" # Проброс порта наружу 
     restart: always
     volumes:
       - postgres_data:/var/lib/postgresql/data # Сохраняем данные при перезапуске
