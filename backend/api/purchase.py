@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from backend.models import BuyTransaction, Item, PurchaseHistoryPage, PurchaseHistoryResponse, AllPurchasesPage, \
     AllPurchasesRow, Employee
 from backend.scripts.database import get_db
+from backend.scripts.time_utils import to_local_time
 
 router = APIRouter()
 
@@ -85,7 +86,7 @@ async def get_all_purchases(
                 buyer_lastname=employee.lastname,
                 item_name=item.name,
                 amount_spent=buy_tx.amount_spent,
-                created_at=buy_tx.created_at,
+                created_at=to_local_time(buy_tx.created_at),
             )
         )
 
