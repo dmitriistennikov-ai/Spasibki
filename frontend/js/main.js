@@ -2045,12 +2045,27 @@ async function deleteItem(id) {
         });
 
         if (!res.ok) {
-            let msg = `Ошибка удаления товара (${res.status})`;
+            let msg = '';
+
             try {
                 const data = await res.json();
-                if (data?.detail) msg = data.detail;
+
+                if (typeof data?.detail === 'string') {
+                    msg = data.detail;
+                } else if (Array.isArray(data?.detail)) {
+                    msg = data.detail
+                        .map((err) => err.msg || err.detail || JSON.stringify(err))
+                        .join('\n');
+                }
             } catch (_) {
             }
+
+            if (!msg) {
+                msg = `Ошибка удаления товара (код ${res.status})`;
+            }
+
+            toast(msg);
+
             throw new Error(msg);
         }
 
@@ -2059,7 +2074,11 @@ async function deleteItem(id) {
         await loadShopItems();
     } catch (err) {
         console.error(err);
-        toast(err.message || 'Не удалось удалить товар');
+        if (err?.message) {
+            toast(err.message);
+        } else {
+            toast('Не удалось удалить товар');
+        }
         throw err;
     }
 }
