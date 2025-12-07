@@ -16,10 +16,10 @@ jobs:
       - name: Deploy to stage via SSH
         uses: appleboy/ssh-action@v1.2.4
         with:
-          host: ${{ secrets.STAGE_HOST }}          
-          username: ${{ secrets.STAGE_USER }}      
-          key: ${{ secrets.STAGE_SSH_KEY }}        
-          port: 22                               
+          host: ${{ secrets.STAGE_HOST }}
+          username: ${{ secrets.STAGE_USER }}
+          key: ${{ secrets.STAGE_SSH_KEY }}
+          port: 22
           script: |
             set -e
             cd ${{ secrets.STAGE_PROJECT_PATH }}
