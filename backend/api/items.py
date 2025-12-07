@@ -10,6 +10,7 @@ from backend.models import Item, ItemCreate, ItemUpdate, ItemResponse, BuyTransa
     BuyTransactionCreate, BuyTransaction
 from backend.scripts.database import get_db
 from backend.services.item_service import execute_buy_transaction, create_item_service, save_file
+from backend.services.bitrix_notify import send_bitrix_purchase_notification
 
 router = APIRouter()
 
@@ -40,6 +41,8 @@ async def buy_item(item: BuyTransactionCreate, db: Session = Depends(get_db)):
             item.buyer_id,
             item.amount_spent
         )
+
+        await send_bitrix_purchase_notification(item.buyer_id, db)
 
         return new_transaction
 
