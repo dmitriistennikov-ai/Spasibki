@@ -16,5 +16,7 @@ async def get_user_photo(auth_id: str, refresh_id: str, domain: str, user_id: in
         raise ValueError(user_data.get("error_description", "Ошибка получения пользователя"))
 
     user_photo = user_data["result"][0]["PERSONAL_PHOTO"]
+    if not user_photo:
+        return None
 
     return user_photo

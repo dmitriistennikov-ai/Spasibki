@@ -60,13 +60,17 @@ async def root(
     member_id = data.get("member_id")
     status = data.get("status")
 
-    current_user_data = await get_current_user(auth_id, refresh_id, domain)
-    user_id = current_user_data["ID"]
-
-    current_user_photo = await get_user_photo(auth_id, refresh_id, domain, user_id)
-    current_user_data["PERSONAL_PHOTO"] = current_user_photo
-
     try:
+        current_user_data = await get_current_user(auth_id, refresh_id, domain)
+        user_id = current_user_data["ID"]
+
+        try:
+            current_user_photo = await get_user_photo(auth_id, refresh_id, domain, user_id)
+        except Exception:
+            current_user_photo = None
+            
+        current_user_data["PERSONAL_PHOTO"] = current_user_photo
+
         save_or_update_employees([current_user_data], db)
         save_or_update_token(
             domain, user_id, member_id, auth_id, refresh_id, expires_in, status, db
