@@ -45,7 +45,7 @@ def save_or_update_employees(users: list[dict], db: Session) -> int:
             )
             db.add(user)
             employee_count += 1
-        print(f'Добавил {data.get('NAME')}')
+        print(f"Добавил {data.get('NAME')}")
         count += 1
 
     db.commit()

@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
     <title>Спасибки</title>
-    <link rel="stylesheet" href="css/new_main.css"/>
+    <link rel="stylesheet" href="css/new_main.css?v=20260227-3"/>
 </head>
 <body>
 
     <header class="header" role="banner">
         <div class="container header__inner">
             <nav class="tabs" role="tablist" aria-label="Основные разделы">
-                <button class="tabs__button tabs__button--active" role="tab" aria-selected="true" data-tab="my-page">Моя страница</button>
+                <button class="tabs__button tabs__button--active" role="tab" aria-selected="true" data-tab="my-page">Главная</button>
                 <button class="tabs__button" role="tab" aria-selected="false" data-tab="game">Игра</button>
                 <button class="tabs__button" role="tab" aria-selected="false" data-tab="live-feed">Лента</button>
                 <button class="tabs__button" role="tab" aria-selected="false" data-tab="shop">Магазин</button>
@@ -23,183 +23,298 @@
         </div>
     </header>
     <main class="main container" role="main">
-        <section id="my-page" class="tab-content tab-content--active" role="tabpanel" aria-labelledby="tab-my-page">
-            <h1 class="visually-hidden">Моя страница</h1>
-            <p class="placeholder"></p>
-            <div id="user-info" class="user-info">
-                <div class="user-info__layout">
-                    <div class="user-info__profile">
-                        <p class="user-info__name"><span id="user-fullname">Кот Батон</span></p>
-                        <div class="user-info__avatar">
-                            <div class="user-info__icon">👤</div>
-                        </div>
+        <section id="user-info" class="home-card home-hero home-hero--full user-info" aria-label="Профиль пользователя">
+            <div class="home-hero__layout">
+                <div class="home-hero__avatar-wrap">
+                    <div class="user-info__avatar home-hero__avatar">
+                        <div class="user-info__icon">👤</div>
                     </div>
-                    <div class="user-info__stats">
+                </div>
+
+                <div class="home-hero__meta">
+                    <p class="user-info__name home-hero__name"><span id="user-fullname">Кот Батон</span></p>
+                    <p class="home-hero__position" id="home-user-position" hidden>Сотрудник</p>
+
+                    <div class="home-hero__stats user-info__stats">
+                        <div class="stat-card" data-tooltip="Количество игровых монет на вашем балансе. 1 полученная Спасибка = 100 монет">
+                            <p class="stat-card__label">Монеты</p>
+                            <p class="stat-card__value stat-card__value--balance" id="current_user-balance">0</p>
+                        </div>
                         <div class="stat-card" data-tooltip="Количество полученных Спасибок за всё время">
                             <p class="stat-card__label">Спасибки</p>
-                            <p class="stat-card__value stat-card__value--thanks" id="current_user-thanks">142</p>
-                        </div>
-                        <div class="stat-card"
-                             data-tooltip="Количество игровых монет на вашем балансе. 1 полученная Спасибка = 100 монет">
-                            <p class="stat-card__label">Баланс</p>
-                            <p class="stat-card__value stat-card__value--balance" id="current_user-balance">87</p>
+                            <p class="stat-card__value stat-card__value--thanks" id="current_user-thanks">0</p>
                         </div>
                     </div>
+
+                    <section class="home-thanks-progress" aria-label="Прогресс уровня по Спасибкам">
+                        <div class="home-thanks-progress__top">
+                            <p class="home-thanks-progress__title" id="home-thanks-progress-title" hidden></p>
+                        </div>
+
+                        <div class="home-thanks-progress__track" role="img" aria-label="Шкала прогресса по спасибкам">
+                            <div class="home-thanks-progress__fill" id="home-thanks-progress-fill"></div>
+                            <span class="home-thanks-progress__marker" style="--pos: 20%;" aria-hidden="true"></span>
+                            <span class="home-thanks-progress__marker" style="--pos: 40%;" aria-hidden="true"></span>
+                            <span class="home-thanks-progress__marker" style="--pos: 60%;" aria-hidden="true"></span>
+                            <span class="home-thanks-progress__marker" style="--pos: 100%;" aria-hidden="true"></span>
+                        </div>
+
+                        <div class="home-thanks-progress__labels" aria-hidden="true">
+                            <div class="home-thanks-progress__labels-row home-thanks-progress__labels-row--levels">
+                                <span style="--pos: 20%;">Хороший работник</span>
+                                <span style="--pos: 40%;">Отличный работник</span>
+                                <span style="--pos: 60%;">Самый лучший</span>
+                                <span style="--pos: 100%;">Легенда</span>
+                            </div>
+                            <div class="home-thanks-progress__labels-row home-thanks-progress__labels-row--values">
+                                <span style="--pos: 0%;">0</span>
+                                <span style="--pos: 20%;">10</span>
+                                <span style="--pos: 40%;">20</span>
+                                <span style="--pos: 60%;">30</span>
+                                <span style="--pos: 100%;">50</span>
+                            </div>
+                        </div>
+                    </section>
                 </div>
-            <button id="send-thanks-btn">
-                <i data-feather="heart" aria-hidden="true"></i>
-                Отправить Спасибку
-            </button>
             </div>
+        </section>
 
-            <section id="likes-history-block" aria-labelledby="likes-history-title">
-                <div class="table-actions">
-                    <h2 id="likes-history-title" class="table-actions__title">История Спасибок</h2>
-                    <button id="likes-filter-to-me"   class="btn btn--tiny" aria-pressed="false">Мне</button>
-                    <button id="likes-filter-from-me" class="btn btn--tiny" aria-pressed="false">От меня</button>
-                </div>
-                <div class="table-wrap">
-                    <table id="likes-history" class="table">
-                        <thead>
-                            <tr>
-                                <th>Дата</th>
-                                <th>От кого</th>
-                                <th>Кому</th>
-                                <th>Сообщение</th>
-                                <th>Стикер</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                        <tr>
-                            <td class="table__empty" colspan="5">Загрузка…</td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div id="likes-history-pagination" class="history-pagination">
-                    <button
-                        type="button"
-                        id="likes-history-prev-page-btn"
-                        class="pagination__btn"
-                        disabled
-                    >
-                        Предыдущая
-                    </button>
-                    <span id="likes-history-current-page">Страница 1</span>
-                    <button
-                            type="button"
-                            id="likes-history-next-page-btn"
-                            class="pagination__btn"
-                    >
-                        Следующая
-                    </button>
-                </div>
-            </section>
+        <div class="app-shell">
+            <aside class="app-shell__sidebar" aria-label="Меню разделов">
+                <nav class="home-nav">
+                    <button type="button" class="home-nav__item home-nav__item--active" data-home-target="my-page">Главная</button>
+                    <button type="button" class="home-nav__item" data-home-target="game">Все игры</button>
+                    <button type="button" class="home-nav__item" data-home-target="shop">Магазин</button>
+                    <button type="button" class="home-nav__item" data-home-target="description-app">О приложении</button>
+                    <button type="button" class="home-nav__item" data-home-target="settings">Настройки</button>
+                </nav>
+            </aside>
 
-            <section id="purchases-history-block" aria-labelledby="purchases-history-title" style="margin-top: 3rem;">
-                <div class="table-actions">
-                    <h2 id="purchases-history-title" class="table-actions__title">История покупок</h2>
+            <div class="app-shell__content">
+        <section id="my-page" class="tab-content tab-content--active" role="tabpanel" aria-labelledby="tab-my-page">
+            <h1 class="visually-hidden">Главная</h1>
+
+            <div class="home-dashboard">
+                <div class="home-dashboard__main">
+
+                    <div id="home-composer-slot" class="shared-composer-slot">
+                        <section
+                            id="thanks-modal"
+                            class="home-card home-composer"
+                            aria-label="Отправка Спасибки"
+                        >
+                            <h2 class="visually-hidden">Отправить Спасибку</h2>
+
+                            <form id="thanks-form" class="home-composer__form">
+                                <div class="home-composer__topline">
+                                    <div class="home-composer__recipient">
+                                        <select
+                                            id="thanks-to"
+                                            name="to"
+                                            required
+                                            class="visually-hidden"
+                                        >
+                                            <option value="" disabled selected>Загрузка…</option>
+                                        </select>
+
+                                        <div id="thanks-to-dropdown" class="thanks-to-dropdown">
+                                            <button
+                                                type="button"
+                                                class="thanks-to-dropdown__trigger home-composer__recipient-trigger"
+                                                aria-haspopup="listbox"
+                                                aria-expanded="false"
+                                            >
+                                                Загрузка…
+                                            </button>
+                                            <ul
+                                                class="thanks-to-dropdown__list"
+                                                role="listbox"
+                                                hidden
+                                            ></ul>
+                                        </div>
+                                    </div>
+
+                                    <p id="home-composer-limit" class="home-composer__limit">Проверяем лимит текущей игры…</p>
+                                </div>
+
+                                <div class="home-composer__message-shell">
+                                    <textarea
+                                        id="thanks-message"
+                                        name="message"
+                                        aria-label="Сообщение для Спасибки"
+                                        rows="2"
+                                        maxlength="280"
+                                        placeholder="Напишите пару слов…"
+                                    ></textarea>
+
+                                    <div class="home-composer__actions">
+                                        <div class="sticker-selector home-composer__sticker-selector">
+                                            <button
+                                                type="button"
+                                                class="sticker-selector__toggle home-composer__icon-btn home-composer__icon-btn--sticker"
+                                                id="sticker-selector-toggle"
+                                                aria-haspopup="true"
+                                                aria-expanded="false"
+                                                aria-label="Выберите стикер"
+                                                title="Выберите стикер"
+                                            >
+                                                Выберите стикер
+                                            </button>
+
+                                            <div id="sticker-selector" class="sticker-selector-grid" hidden></div>
+
+                                            <input type="hidden" id="selected-sticker-id" name="sticker_id" value="">
+                                        </div>
+
+                                        <button
+                                            type="submit"
+                                            class="btn btn--primary home-composer__icon-btn home-composer__icon-btn--send"
+                                            aria-label="Отправить Спасибку"
+                                            title="Отправить Спасибку"
+                                        >
+                                            Отправить
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                        </section>
+                    </div>
+
+                    <section class="home-card home-feed" aria-labelledby="home-feed-title">
+                        <div class="home-feed__header">
+                            <h2 id="home-feed-title" class="home-card__title">Лента активности</h2>
+                            <div class="home-feed__filters" role="tablist" aria-label="Фильтры ленты">
+                                <button type="button" class="btn btn--tiny is-active" id="home-feed-filter-all" aria-pressed="true">Все</button>
+                                <button type="button" class="btn btn--tiny" id="home-feed-filter-received" aria-pressed="false">Получено</button>
+                                <button type="button" class="btn btn--tiny" id="home-feed-filter-sent" aria-pressed="false">Отправлено</button>
+                            </div>
+                        </div>
+
+                        <div id="home-feed-list" class="home-feed__list" aria-live="polite">
+                            <p class="placeholder">Загрузка ленты…</p>
+                        </div>
+                    </section>
                 </div>
-                <div class="table-wrap">
-                    <table id="purchases-history" class="table">
-                        <thead>
-                        <tr>
-                            <th>Дата</th>
-                            <th>Товар</th>
-                            <th>Стоимость</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr>
-                            <td class="table__empty" colspan="3">Загрузка...</td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div id="purchases-history-pagination" class="history-pagination">
-                    <button
-                            type="button"
-                            id="purchases-prev-btn"
-                            class="pagination__btn"
-                            disabled
-                    >
-                        Предыдущая
-                    </button>
-                    <span id="purchases-current-page">Страница 1</span>
-                    <button
-                            type="button"
-                            id="purchases-next-btn"
-                            class="pagination__btn"
-                            disabled
-                    >
-                        Следующая
-                    </button>
-                </div>
-            </section>
+
+                <aside class="home-dashboard__right">
+                    <section class="home-card home-top3" aria-labelledby="home-top3-title">
+                        <h2 id="home-top3-title" class="home-card__title">Лидеры месяца</h2>
+                        <p id="home-top3-subtitle" class="home-card__subtle" hidden></p>
+                        <div id="home-top3-list" class="home-top3__list">
+                            <p class="placeholder">Загружаем рейтинг…</p>
+                        </div>
+                    </section>
+
+                    <section class="home-card home-purchases" aria-labelledby="home-purchases-title">
+                        <h2 id="home-purchases-title" class="home-card__title">Мои покупки</h2>
+                        <div id="home-purchases-list" class="home-purchases__list">
+                            <p class="placeholder">Загрузка покупок…</p>
+                        </div>
+                        <div id="home-purchases-pages" class="games-pages" hidden></div>
+                    </section>
+                </aside>
+            </div>
         </section>
 
         <section id="game" class="tab-content" role="tabpanel" aria-labelledby="tab-game" hidden>
-            <h1 class="visually-hidden">Игра</h1>
+            <h1 class="visually-hidden">Все игры</h1>
 
-            <section id="active-game-block" aria-labelledby="active-game-title">
-                <div class="table-games table-games--inline">
-                    <a id="active-game-link" href="#" class="table-games__link" hidden>Название активной игры</a>
-                    <span id="active-game-empty" class="table-games__empty">
-                        В данный момент нет активной игры
-                    </span>
-                    <button id="send-thanks-btn-in-game">
-                        <i data-feather="heart" aria-hidden="true"></i>
-                        Отправить Спасибку
-                    </button>
-                </div>
-                <div id="game-stats-container">
-                    <p id="game-thanks-received" class="thanks-limit">Получено Спасибок в текущей игре: —</p>
-                    <p id="game-thanks-limit" class="thanks-limit">Остаток Спасибок в текущей игре: —</p>
-                </div>
-            </section>
+            <div class="games-dashboard">
+                <div class="games-dashboard__main">
+                    <section id="active-game-block" class="home-card games-active" aria-labelledby="active-game-title">
+                        <h2 id="active-game-title" class="visually-hidden">Активная игра</h2>
+                        <div class="games-active__layout">
+                            <div class="games-active__art" aria-hidden="true">
+                                <span class="games-active__heart games-active__heart--lg">❤</span>
+                                <span class="games-active__heart games-active__heart--md">❤</span>
+                                <span class="games-active__heart games-active__heart--sm">❤</span>
+                            </div>
 
-            <section id="finished-games-block" aria-labelledby="finished-games-title">
-                <div class="table-games">
-                    <h2 id="finished-games-title" class="table-games__title">Завершённые игры</h2>
-                </div>
-                <div class="table-wrap">
-                    <table id="finished-games" class="table">
-                        <thead>
-                        <tr>
-                            <th>Название</th>
-                            <th>Описание</th>
-                            <th>Дата начала</th>
-                            <th>Дата завершения</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        <tr>
-                            <td class="table__empty" colspan="4">Загрузка…</td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div class="pagination" id="finished-games-pagination">
-                    <button class="pagination__btn" id="prev-page-btn" disabled>Предыдущая</button>
-                    <span id="current-page">Страница 1</span>
-                    <button class="pagination__btn" id="next-page-btn">Следующая</button>
-                </div>
-            </section>
+                            <div class="games-active__meta">
+                                <p class="games-active__eyebrow">Активная игра</p>
+                                <a id="active-game-link" href="#" class="games-active__title" hidden>Название активной игры</a>
+                                <p id="active-game-empty" class="games-active__empty">В данный момент нет активной игры</p>
+                                <p id="active-game-description" class="games-active__description" hidden></p>
+                                <p id="active-game-dates" class="games-active__dates" hidden></p>
+                                <p id="active-game-rules" class="games-active__rules" hidden></p>
+                            </div>
 
-            <section id="overall-rating-block" aria-labelledby="overall-rating-title">
-                <div class="table-games">
-                    <h2 id="overall-rating-title" class="table-games__title">Общий рейтинг</h2>
+                            <div id="game-stats-container" class="games-active__stats" hidden>
+                                <div class="games-active__stat">
+                                    <span class="games-active__stat-label">Получено</span>
+                                    <span class="games-active__stat-value">
+                                        <span id="game-thanks-received-value">0</span>
+                                    </span>
+                                </div>
+                                <div class="games-active__stat">
+                                    <span class="games-active__stat-label">Можно отправить</span>
+                                    <span class="games-active__stat-value">
+                                        <span id="game-thanks-limit-value">0</span>
+                                    </span>
+                                </div>
+                                <div class="games-active__stat">
+                                    <span class="games-active__stat-label">Отправлено</span>
+                                    <span class="games-active__stat-value">
+                                        <span id="game-thanks-sent-value">0</span>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="visually-hidden" aria-hidden="true">
+                            <p id="game-thanks-received" class="thanks-limit">Получено Спасибок в текущей игре: —</p>
+                            <p id="game-thanks-limit" class="thanks-limit">Остаток Спасибок в текущей игре: —</p>
+                        </div>
+
+                        <button id="send-thanks-btn-in-game" class="visually-hidden" type="button">Отправить Спасибку</button>
+                    </section>
+
+                    <div id="game-composer-slot" class="shared-composer-slot"></div>
+
+                    <section id="overall-rating-block" class="home-card games-overall" aria-labelledby="overall-rating-title">
+                        <div class="games-overall__header">
+                            <h2 id="overall-rating-title" class="home-card__title">Общий рейтинг</h2>
+                            <p class="home-card__subtle">За все игры</p>
+                        </div>
+
+                        <div id="overall-rating-container" class="game-rating game-rating--dashboard">
+                            <p class="game-rating__loading">Загружаем общий рейтинг…</p>
+                        </div>
+                        <div class="pagination games-overall__pagination" id="overall-rating-pagination">
+                            <button class="pagination__btn" id="overall-rating-prev-btn" disabled>Предыдущая</button>
+                            <span id="overall-rating-current-page">Страница 1</span>
+                            <button class="pagination__btn" id="overall-rating-next-btn">Следующая</button>
+                        </div>
+                    </section>
                 </div>
 
-                <div id="overall-rating-container" class="game-rating">
-                    <p class="game-rating__loading">Загружаем общий рейтинг…</p>
-                </div>
-                <div class="pagination" id="overall-rating-pagination">
-                    <button class="pagination__btn" id="overall-rating-prev-btn" disabled>Предыдущая</button>
-                    <span id="overall-rating-current-page">Страница 1</span>
-                    <button class="pagination__btn" id="overall-rating-next-btn">Следующая</button>
-                </div>
-            </section>
+                <aside class="games-dashboard__right">
+                    <section id="finished-games-block" class="home-card games-archive" aria-labelledby="finished-games-title">
+                        <h2 id="finished-games-title" class="home-card__title">Завершённые игры</h2>
+
+                        <div id="games-archive-list" class="games-archive__list" aria-live="polite">
+                            <p class="placeholder">Загрузка игр…</p>
+                        </div>
+
+                        <div id="finished-games-pages" class="games-pages" hidden></div>
+
+                        <div class="visually-hidden" aria-hidden="true">
+                            <table id="finished-games" class="table">
+                                <tbody>
+                                <tr>
+                                    <td class="table__empty" colspan="4">Загрузка…</td>
+                                </tr>
+                                </tbody>
+                            </table>
+                            <div class="pagination" id="finished-games-pagination">
+                                <button class="pagination__btn" id="prev-page-btn" disabled>Предыдущая</button>
+                                <span id="current-page">Страница 1</span>
+                                <button class="pagination__btn" id="next-page-btn">Следующая</button>
+                            </div>
+                        </div>
+                    </section>
+                </aside>
+            </div>
         </section>
 
         <section id="live-feed" class="tab-content" role="tabpanel" aria-labelledby="tab-live-feed" hidden>
@@ -250,15 +365,27 @@
         <section id="shop" class="tab-content" role="tabpanel" aria-labelledby="tab-shop" hidden>
             <h1 class="visually-hidden">Магазин</h1>
 
-            <section id="shop-items-block" aria-labelledby="shop-items-title">
-                <div class="table-actions">
-                    <h2 id="shop-items-title" class="table-actions__title">Доступные товары</h2>
+            <div class="shop-dashboard">
+                <div class="shop-dashboard__main">
+                    <section id="shop-items-block" class="home-card shop-catalog" aria-labelledby="shop-items-title">
+                        <h2 id="shop-items-title" class="visually-hidden">Товары</h2>
+
+                        <div id="shop-items" class="shop-grid" aria-live="polite">
+                            <p class="shop-empty">Загрузка товаров…</p>
+                        </div>
+                    </section>
                 </div>
 
-                <div id="shop-items" class="shop-grid">
-                    <p class="shop-empty">Загрузка товаров…</p>
-                </div>
-            </section>
+                <aside class="shop-dashboard__right">
+                    <section class="home-card home-purchases shop-purchases" aria-labelledby="shop-purchases-title">
+                        <h2 id="shop-purchases-title" class="home-card__title">Мои покупки</h2>
+                        <div id="shop-purchases-list" class="home-purchases__list">
+                            <p class="placeholder">Загрузка покупок…</p>
+                        </div>
+                        <div id="shop-purchases-pages" class="games-pages" hidden></div>
+                    </section>
+                </aside>
+            </div>
         </section>
 
         <section id="description-app" class="tab-content" role="tabpanel" aria-labelledby="tab-description" hidden>
@@ -279,8 +406,8 @@
                 <h2>Как это работает</h2>
                 <ol>
                     <li>Вы открываете приложение «Спасибки» внутри Битрикс24.</li>
-                    <li>Нажимаете кнопку <strong>«Отправить Спасибку»</strong>.</li>
-                    <li>Выбираете коллегу, пишете короткое сообщение и (по желанию) выбираете стикер.</li>
+                    <li>В выпадающем списке <strong>"Кому отправить спасибку"</strong> выбираете коллегу, которого вы хотите поблагодарить.</li>
+                    <li>Пишете короткое сообщение и (по желанию) выбираете стикер.</li>
                     <li>Коллега получает Спасибку, а вы — запись в истории и хорошее настроение.</li>
                 </ol>
 
@@ -292,16 +419,11 @@
                 <h2>Основные разделы приложения</h2>
                 <ul>
                     <li>
-                        <strong>Моя страница</strong> — ваш личный кабинет:
-                        полученные Спасибки, баланс монет, история Спасибок и покупок.
+                        <strong>Главная</strong> — здесь доступны: форма для отправки Спасибки, лента активности всех сотрудников, лидеры текущего месяца по полученным Спасибкам, ваши покупки за всё время.
                     </li>
                     <li>
-                        <strong>Игра</strong> — активная игра, завершённые игры и общий рейтинг сотрудников.
+                        <strong>Все игры</strong> — активная текущая игра, завершённые игры и общий рейтинг сотрудников за всё время.
                         Здесь видно, кто чаще других дарит и получает Спасибки.
-                    </li>
-                    <li>
-                        <strong>Лента</strong> — общая история всех Спасибок в компании за всё время.
-                        Удобно, чтобы видеть, кто и за что благодарит коллег.
                     </li>
                     <li>
                         <strong>Магазин</strong> — витрина призов, на которые можно потратить монеты.
@@ -310,7 +432,7 @@
 
                 <h2>Игры и общий рейтинг</h2>
                 <p>
-                    В разделе «Игра» отображаются все игры вашей компании. Активная игра может быть только одна, завершённая - без ограничений. В каждой игре действует свой период,
+                    В разделе «Все игры» отображаются все игры вашей компании. Активная игра может быть только одна, завершённая - без ограничений. В каждой игре действует свой период,
                     лимиты на отправку Спасибок и отдельный рейтинг сотрудников - всё это можно увидеть в описании игры. Описание каждой игры открывается после клика на название игры. Все Спасибки отправляются в рамках активной игры.
                 </p>
                 <ul>
@@ -320,7 +442,7 @@
                 </ul>
 
                 <p>
-                    Если в данный момент нет активной игры, то функция отправки Спасибок недоступна.
+                    <strong>Если в данный момент нет активной игры, то функция отправки Спасибок недоступна!</strong>
                 </p>
 
                 <h2>Магазин и призы</h2>
@@ -337,7 +459,7 @@
 
                 <h3><i>Вижу ли я свои лимиты?</i></h3>
                 <p>
-                    Да, в разделе «Игра» отображаются полученные Спасибки в текущей игре и остаток вашего лимита в текущей игре.
+                    Да, в разделе «Все игры» и в форме отправки Спасибки отображаются полученные Спасибки в текущей игре и остаток вашего лимита в текущей игре.
                 </p>
 
                 <h3><i>Кто управляет играми и магазином?</i></h3>
@@ -390,6 +512,15 @@
                             data-settings-section="purchases"
                     >
                         Покупки
+                    </button>
+                    <button
+                            type="button"
+                            class="settings-nav__button"
+                            data-settings-section="events"
+                            id="settings-events-nav-btn"
+                            hidden
+                    >
+                        События
                     </button>
                     <button
                             type="button"
@@ -454,80 +585,12 @@
                 </section>
             </div>
         </section>
-
+            </div>
+        </div>
     </main>
 
     <!-- Глобальная зона сообщений -->
     <div id="message-bar" class="message-bar" aria-live="polite" aria-atomic="true"></div>
-
-    <!-- Модалка «Отправить Спасибку» -->
-    <div id="thanks-modal" class="modal" role="dialog" aria-modal="true" aria-hidden="true" hidden>
-        <div class="modal__overlay" data-close="thanks"></div>
-        <div class="modal__dialog" role="document" aria-labelledby="thanks-modal-title">
-            <header class="modal__header">
-                <h3 id="thanks-modal-title" class="modal__title">Отправить Спасибку</h3>
-                <button type="button" class="modal__close" id="thanks-modal-close" aria-label="Закрыть">✕</button>
-            </header>
-            <form id="thanks-form">
-                <div class="modal__content">
-                    <label for="thanks-to" class="form-label">Кому</label>
-                    <select
-                            id="thanks-to"
-                            name="to"
-                            required
-                            class="visually-hidden"
-                    >
-                        <option value="" disabled selected>Загрузка…</option>
-                    </select>
-                    <div id="thanks-to-dropdown" class="thanks-to-dropdown">
-                        <button
-                                type="button"
-                                class="thanks-to-dropdown__trigger"
-                                aria-haspopup="listbox"
-                                aria-expanded="false"
-                        >
-                            Загрузка…
-                        </button>
-                        <ul
-                                class="thanks-to-dropdown__list"
-                                role="listbox"
-                                hidden
-                        ></ul>
-                    </div>
-                </div>
-                <div class="modal__content">
-                    <label for="thanks-message" class="form-label">Сообщение</label>
-                    <textarea id="thanks-message" name="message" rows="4" placeholder="Напишите пару слов…" maxlength="280"></textarea>
-                </div>
-                <div class="modal__content">
-                    <div class="modal__form-group">
-                        <label for="selected-sticker-id" class="form-label">Стикер</label>
-
-                        <div class="sticker-selector">
-                            <button
-                                    type="button"
-                                    class="sticker-selector__toggle"
-                                    id="sticker-selector-toggle"
-                                    aria-haspopup="true"
-                                    aria-expanded="false"
-                            >
-                                Выберите стикер
-                            </button>
-
-                            <div id="sticker-selector" class="sticker-selector-grid" hidden></div>
-
-                            <input type="hidden" id="selected-sticker-id" name="sticker_id" value="">
-                        </div>
-                    </div>
-                </div>
-
-                <footer class="modal__footer">
-                    <button type="submit" class="btn btn--primary">Отправить</button>
-                    <button type="button" class="btn" id="thanks-modal-cancel">Отмена</button>
-                </footer>
-            </form>
-        </div>
-    </div>
 
     <!-- Модалка  Игра -->
     <div id="game-modal" class="modal" role="dialog" aria-modal="true" aria-hidden="true" hidden>
@@ -615,6 +678,28 @@
                 </div>
 
                 <div class="modal__content">
+                    <label class="form-label" for="game-edit-participants-search">Участники игры</label>
+                    <div class="game-participants-picker" data-picker="game-edit">
+                        <div class="game-participants-picker__toolbar">
+                            <input
+                                id="game-edit-participants-search"
+                                type="search"
+                                class="game-participants-picker__search"
+                                placeholder="Поиск сотрудника..."
+                                autocomplete="off"
+                            />
+                            <div class="game-participants-picker__actions">
+                                <button type="button" class="btn btn--tiny" id="game-edit-participants-select-all">Выбрать всех</button>
+                                <button type="button" class="btn btn--tiny" id="game-edit-participants-clear">Снять всех</button>
+                            </div>
+                        </div>
+                        <div id="game-edit-participants-list" class="game-participants-picker__list" aria-live="polite">
+                            <p class="placeholder">Загрузка сотрудников…</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal__content">
                     <label class="form-checkbox">
                         <input id="game-edit-is-active" name="game_is_active" type="checkbox" />
                         <span>Игра Активна</span>
@@ -681,6 +766,28 @@
                     <div>
                         <label class="form-label" for="game-create-limit-to-one">Лимит Спасибок одному человеку</label>
                         <input id="game-create-limit-to-one" name="setting_limitToOneUser" type="number" min="1" />
+                    </div>
+                </div>
+
+                <div class="modal__content">
+                    <label class="form-label" for="game-create-participants-search">Участники игры</label>
+                    <div class="game-participants-picker" data-picker="game-create">
+                        <div class="game-participants-picker__toolbar">
+                            <input
+                                id="game-create-participants-search"
+                                type="search"
+                                class="game-participants-picker__search"
+                                placeholder="Поиск сотрудника..."
+                                autocomplete="off"
+                            />
+                            <div class="game-participants-picker__actions">
+                                <button type="button" class="btn btn--tiny" id="game-create-participants-select-all">Выбрать всех</button>
+                                <button type="button" class="btn btn--tiny" id="game-create-participants-clear">Снять всех</button>
+                            </div>
+                        </div>
+                        <div id="game-create-participants-list" class="game-participants-picker__list" aria-live="polite">
+                            <p class="placeholder">Загрузка сотрудников…</p>
+                        </div>
                     </div>
                 </div>
 
@@ -1062,6 +1169,43 @@
         </div>
     </div>
 
+    <!-- Модалка подтверждения покупки -->
+    <div
+            id="purchase-confirm-modal"
+            class="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-hidden="true"
+            hidden
+    >
+        <div class="modal__overlay"></div>
+        <div
+                class="modal__dialog purchase-confirm-modal__dialog"
+                role="document"
+                aria-labelledby="purchase-confirm-title"
+                aria-describedby="purchase-confirm-message"
+        >
+            <header class="modal__header">
+                <h3 id="purchase-confirm-title" class="modal__title">Подтверждение покупки</h3>
+                <button
+                        type="button"
+                        class="modal__close"
+                        id="purchase-confirm-close"
+                        aria-label="Закрыть"
+                >
+                    ✕
+                </button>
+            </header>
+            <div class="modal__content">
+                <p id="purchase-confirm-message">Купить товар?</p>
+            </div>
+            <footer class="modal__footer">
+                <button type="button" class="btn" id="purchase-confirm-cancel">Отмена</button>
+                <button type="button" class="btn btn--primary" id="purchase-confirm-ok">Купить</button>
+            </footer>
+        </div>
+    </div>
+
 
     <!-- Модалка редактирования сотрудника -->
     <div
@@ -1164,7 +1308,7 @@
     </div>
 
     <script src="https://unpkg.com/feather-icons"></script>
-    <script src="js/main.js" defer></script>
+    <script src="js/main.js?v=20260227-3" defer></script>
 
 </body>
 </html>

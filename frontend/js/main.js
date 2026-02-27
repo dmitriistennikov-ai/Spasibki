@@ -31,6 +31,67 @@ function toast(msg) {
     setTimeout(() => bar.classList.remove('is-visible'), 3500);
 }
 
+const THANKS_RECIPIENT_PLACEHOLDER = 'Кому отправить спасибку';
+let currentUserProfile = null;
+
+function setStickerToggleState(toggleBtn, selected = false, label = 'Выберите стикер') {
+    if (!toggleBtn) return;
+    toggleBtn.textContent = '';
+    toggleBtn.classList.toggle('is-selected', selected);
+    toggleBtn.setAttribute('title', selected ? `Стикер: ${label}` : 'Выберите стикер');
+    toggleBtn.setAttribute('aria-label', selected ? `Выбран стикер: ${label}` : 'Выберите стикер');
+}
+
+
+const THANKS_PROGRESS_LEVELS = [
+    { label: 'Хороший работник', value: 10 },
+    { label: 'Отличный работник', value: 20 },
+    { label: 'Самый лучший', value: 30 },
+    { label: 'Легенда', value: 50 },
+];
+
+
+function updateThanksProgressScale(totalLikes) {
+    const safeLikes = Math.max(0, Number(totalLikes || 0));
+    const titleEl = document.getElementById('home-thanks-progress-title');
+    const currentEl = document.getElementById('home-thanks-progress-current');
+    const fillEl = document.getElementById('home-thanks-progress-fill');
+    const trackEl = document.querySelector('.home-thanks-progress__track');
+    const markerEls = [...document.querySelectorAll('.home-thanks-progress__marker')];
+
+    if (!titleEl || !fillEl || !trackEl) return;
+
+    if (currentEl) {
+        currentEl.textContent = Number(safeLikes).toLocaleString('ru-RU');
+    }
+
+    const maxThreshold = THANKS_PROGRESS_LEVELS[THANKS_PROGRESS_LEVELS.length - 1]?.value || 50;
+    const progressPercent = Math.min(100, (safeLikes / maxThreshold) * 100);
+    fillEl.style.width = `${progressPercent}%`;
+
+    const currentLevel = [...THANKS_PROGRESS_LEVELS].reverse().find((level) => safeLikes >= level.value) || null;
+
+    if (currentLevel) {
+        titleEl.hidden = false;
+        titleEl.textContent = currentLevel.label;
+    } else {
+        titleEl.textContent = '';
+        titleEl.hidden = true;
+    }
+
+    trackEl.setAttribute(
+        'aria-label',
+        currentLevel
+            ? `Уровень: ${currentLevel.label}. Получено ${safeLikes} Спасибок из ${maxThreshold} для максимального уровня`
+            : `Получено ${safeLikes} Спасибок. До первого уровня нужно ${THANKS_PROGRESS_LEVELS[0]?.value ?? 10}`,
+    );
+
+    markerEls.forEach((markerEl, index) => {
+        const threshold = THANKS_PROGRESS_LEVELS[index]?.value;
+        markerEl.classList.toggle('is-reached', typeof threshold === 'number' && safeLikes >= threshold);
+    });
+}
+
 
 async function loadCurrentUser() {
     try {
@@ -40,19 +101,29 @@ async function loadCurrentUser() {
             return;
         }
 
-        const res = await fetch(`/api/user?user_id=${encodeURIComponent(userId)}`);
+        const res = await fetch(`/api/user?user_id=${encodeURIComponent(userId)}`, {
+            cache: 'no-store',
+        });
         if (!res.ok) {
             throw new Error(`Не удалось загрузить пользователя (${res.status})`);
         }
         const u = await res.json();
+        currentUserProfile = u;
         const set = (id, v) => {
             const el = document.getElementById(id);
             if (el) el.textContent = v ?? '—';
         };
         const fullName = [u.name, u.lastname].filter(Boolean).join(' ');
         set('user-fullname', fullName || '—');
-        set('current_user-thanks', Number(u.likes ?? 0).toLocaleString('ru-RU'));
+        const likesTotal = Number(u.likes ?? 0);
+        set('current_user-thanks', likesTotal.toLocaleString('ru-RU'));
         set('current_user-balance', Number(u.coins ?? 0).toLocaleString('ru-RU'));
+        set('home-user-position', u.position || 'Сотрудник');
+        updateThanksProgressScale(likesTotal);
+        const settingsEventsBtn = document.getElementById('settings-events-nav-btn');
+        if (settingsEventsBtn) {
+            settingsEventsBtn.hidden = !Boolean(u.is_superadmin);
+        }
 
         const avatarEl = document.querySelector('.user-info__avatar');
         if (avatarEl && u.photo_url) {
@@ -71,6 +142,7 @@ async function loadCurrentUser() {
             if (settingsPanel) {
                 settingsPanel.remove();
             }
+            document.querySelector('.home-nav__item[data-home-target="settings"]')?.remove();
 
             const activeBtn = document.querySelector('.tabs__button.tabs__button--active');
             if (!activeBtn) {
@@ -84,8 +156,8 @@ async function loadCurrentUser() {
                 }
             }
         }
-        initPurchasesHistory();
-        loadPurchasesHistory();
+        syncHomeNavSelection();
+        await loadHomeDashboardData();
     }   catch (e) {
         console.error(e);
         toast(e.message || 'Ошибка загрузки сотрудника');
@@ -94,7 +166,7 @@ async function loadCurrentUser() {
 
 
 async function fetchUsers() {
-    const r = await fetch('/api/users?only_gamers=true');
+    const r = await fetch('/api/users?only_gamers=true&active_game_only=true');
     if(!r.ok) throw new Error(`Не удалось загрузить сотрудников (${r.status})`);
     return r.json();
 }
@@ -139,6 +211,7 @@ async function openThanksModal() {
 
     select.innerHTML = '<option value="" disabled selected>Загрузка…</option>';
     trigger.textContent = 'Загрузка…';
+    trigger.setAttribute('title', 'Загрузка…');
     trigger.setAttribute('aria-expanded', 'false');
     list.hidden = true;
     list.innerHTML = '';
@@ -180,7 +253,8 @@ async function openThanksModal() {
         select.innerHTML = selectOptions.join('');
         list.innerHTML = buildListHtml(users);
 
-        trigger.textContent = 'Выберите сотрудника…';
+        trigger.textContent = THANKS_RECIPIENT_PLACEHOLDER;
+        trigger.setAttribute('title', THANKS_RECIPIENT_PLACEHOLDER);
 
         if (!trigger.dataset.dropdownInit) {
             trigger.addEventListener('click', () => {
@@ -226,13 +300,13 @@ async function openThanksModal() {
                 select.dispatchEvent(new Event('change', { bubbles: true }));
 
                 trigger.textContent = label;
+                trigger.setAttribute('title', label);
                 list.hidden = true;
                 searchInput.hidden = true;
                 trigger.setAttribute('aria-expanded', 'false');
             });
 
             document.addEventListener('click', (event) => {
-                if (!modal.contains(event.target)) return;
                 if (!dropdown.contains(event.target)) {
                     list.hidden = true;
                     searchInput.hidden = true;
@@ -247,12 +321,10 @@ async function openThanksModal() {
         console.error(e);
         toast(e.message || 'Ошибка загрузки сотрудников');
         trigger.textContent = 'Ошибка загрузки';
+        trigger.setAttribute('title', 'Ошибка загрузки');
         list.hidden = true;
         searchInput.hidden = true;
     }
-
-    modal.hidden = false;
-    modal.setAttribute('aria-hidden', 'false');
 }
 
 
@@ -265,10 +337,13 @@ function closeThanksModal() {
     if (msgInput) msgInput.value = '';
 
     const toInput = modal.querySelector('#thanks-to');
-    if (toInput) toInput.value = '0';
+    if (toInput) toInput.value = '';
 
     const dropdownTrigger = modal.querySelector('.thanks-to-dropdown__trigger');
-    if (dropdownTrigger) dropdownTrigger.textContent = 'Загрузка…';
+    if (dropdownTrigger) {
+        dropdownTrigger.textContent = THANKS_RECIPIENT_PLACEHOLDER;
+        dropdownTrigger.setAttribute('title', THANKS_RECIPIENT_PLACEHOLDER);
+    }
 
     const selectedInput = modal.querySelector('#selected-sticker-id');
     if (selectedInput) selectedInput.value = '';
@@ -279,16 +354,24 @@ function closeThanksModal() {
     });
 
     const stickerToggle = modal.querySelector('#sticker-selector-toggle');
-    if (stickerToggle) stickerToggle.textContent = 'Выберите стикер';
+    setStickerToggleState(stickerToggle, false, 'Выберите стикер');
 
-    modal.setAttribute('aria-hidden', 'true');
-    modal.hidden = true;
+    const dropdownList = modal.querySelector('.thanks-to-dropdown__list');
+    const dropdownSearch = modal.querySelector('.thanks-to-dropdown__search');
+    if (dropdownList) dropdownList.hidden = true;
+    if (dropdownSearch) dropdownSearch.hidden = true;
+
+    const stickerGrid = modal.querySelector('#sticker-selector');
+    if (stickerGrid) stickerGrid.setAttribute('hidden', '');
+    if (stickerToggle) stickerToggle.setAttribute('aria-expanded', 'false');
 }
 
 
 async function submitThanks(e) {
     e.preventDefault();
     const modal = document.getElementById('thanks-modal');
+    if (!modal) return;
+
     const toId = Number(modal.querySelector('#thanks-to')?.value || '0');
     const fromId = Number(getCurrentUserId() || '0');
     const stickerId = Number(modal.querySelector('#selected-sticker-id')?.value || '0');
@@ -318,12 +401,10 @@ async function submitThanks(e) {
             throw new Error(msg);
         }
         toast('Спасибка отправлена!');
-        await loadLikesHistory();
+        await loadCurrentUser();
         await refreshGameLikesInfo();
         await loadLiveFeedHistory();
         await loadOverallRating();
-        await loadPurchasesHistory();
-        await loadCurrentUser();
 
         closeThanksModal();
     } catch (err) {
@@ -596,10 +677,511 @@ function fmtDate(iso) {
 }
 
 
+function fmtDateTime(iso) {
+    if (!iso) return '—';
+
+    // For backend timestamps in the activity feed we prefer string parsing,
+    // so the displayed local (Ekaterinburg-shifted) time is preserved as-is.
+    const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s](\d{2}):(\d{2}))?/);
+    if (m) {
+        const base = `${m[3]}.${m[2]}.${m[1]}`;
+        if (m[4] && m[5]) return `${base}, ${m[4]}:${m[5]}`;
+        return base;
+    }
+
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '—';
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}, ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+
 function esc(s) {
     return String(s ?? '').replace(/[&<>\"']/g, m => (
         { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]
     ));
+}
+
+
+let homeFeedRows = [];
+let homeFeedFilter = 'all';
+let homeFeedLimit = 20;
+
+
+function switchToTab(tabId) {
+    const btn = document.querySelector(`.tabs__button[data-tab="${tabId}"]`);
+    btn?.click();
+}
+
+
+function syncHomeNavSelection() {
+    const activeTab = document.querySelector('.tabs__button.tabs__button--active')?.dataset.tab || 'my-page';
+    document.querySelectorAll('.home-nav__item').forEach((btn) => {
+        const isActive = btn.dataset.homeTarget === activeTab;
+        btn.classList.toggle('home-nav__item--active', isActive);
+    });
+    syncMainProfileVisibility(activeTab);
+    mountSharedComposer(activeTab);
+}
+
+
+function syncMainProfileVisibility(activeTab = null) {
+    const profile = document.getElementById('user-info');
+    if (!profile) return;
+    const currentActiveTab = activeTab || document.querySelector('.tabs__button.tabs__button--active')?.dataset.tab || 'my-page';
+    profile.hidden = !['my-page', 'game', 'shop'].includes(currentActiveTab);
+}
+
+
+function mountSharedComposer(activeTab = null) {
+    const composer = document.getElementById('thanks-modal');
+    if (!composer) return;
+
+    const currentActiveTab = activeTab || document.querySelector('.tabs__button.tabs__button--active')?.dataset.tab || 'my-page';
+    const targetSlotId = currentActiveTab === 'game' ? 'game-composer-slot' : 'home-composer-slot';
+    const targetSlot = document.getElementById(targetSlotId);
+    if (!targetSlot) return;
+
+    if (composer.parentElement !== targetSlot) {
+        targetSlot.appendChild(composer);
+    }
+
+    ['home-composer-slot', 'game-composer-slot'].forEach((slotId) => {
+        const slot = document.getElementById(slotId);
+        if (!slot) return;
+        const hasComposer = slot.querySelector('#thanks-modal') !== null;
+        slot.classList.toggle('shared-composer-slot--empty', !hasComposer);
+    });
+}
+
+
+function initHomeSidebarNav() {
+    document.querySelectorAll('.home-nav__item').forEach((btn) => {
+        if (btn.dataset.homeNavInit === '1') return;
+        btn.addEventListener('click', () => {
+            const target = btn.dataset.homeTarget;
+            if (target) {
+                switchToTab(target);
+            }
+            syncHomeNavSelection();
+        });
+        btn.dataset.homeNavInit = '1';
+    });
+
+    document.querySelectorAll('.tabs__button').forEach((btn) => {
+        if (btn.dataset.homeNavSyncInit === '1') return;
+        btn.addEventListener('click', syncHomeNavSelection);
+        btn.dataset.homeNavSyncInit = '1';
+    });
+
+    syncHomeNavSelection();
+}
+
+
+function openThanksComposerOnHome() {
+    switchToTab('my-page');
+    openThanksModal();
+    const composer = document.getElementById('thanks-modal');
+    composer?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => {
+        document.getElementById('thanks-message')?.focus();
+    }, 50);
+}
+
+
+async function refreshHomeComposerInfo() {
+    const hint = document.getElementById('home-composer-limit');
+    const submitBtn = document.querySelector('#thanks-form button[type="submit"]');
+    if (!hint) return;
+
+    const userId = getCurrentUserId();
+    if (!userId) {
+        hint.textContent = 'Нет user_id в URL';
+        hint.dataset.hasValue = '0';
+        if (submitBtn) submitBtn.disabled = true;
+        return;
+    }
+
+    try {
+        const likesInfo = await fetchLikesInfo(userId);
+        if (!likesInfo.has_active_game) {
+            hint.textContent = 'Сейчас нет активной игры';
+            hint.dataset.hasValue = '0';
+            if (submitBtn) submitBtn.disabled = true;
+            return;
+        }
+
+        hint.textContent = `Можно отправить: ${likesInfo.remaining_likes ?? 0}`;
+        hint.dataset.hasValue = '1';
+        if (submitBtn) submitBtn.disabled = (likesInfo.remaining_likes ?? 0) <= 0;
+    } catch (e) {
+        console.error(e);
+        hint.textContent = 'Не удалось получить лимит Спасибок';
+        hint.dataset.hasValue = '0';
+        if (submitBtn) submitBtn.disabled = false;
+    }
+}
+
+
+async function renderHomeFeed(rows) {
+    const container = document.getElementById('home-feed-list');
+    if (!container) return;
+
+    if (!rows || rows.length === 0) {
+        container.innerHTML = '<p class="home-feed__empty">По выбранному фильтру пока нет записей.</p>';
+        return;
+    }
+
+    const personHtml = (name, photoUrl) => {
+        const safeName = esc(name || 'Неизвестно');
+        const initial = esc((name || 'Н').trim().charAt(0).toUpperCase() || 'Н');
+        return `
+            <span class="home-feed-item__person">
+                <span class="home-feed-item__avatar" aria-hidden="true">
+                    ${photoUrl
+                        ? `<img src="${esc(photoUrl)}" alt="" loading="lazy" />`
+                        : `<span class="home-feed-item__avatar-fallback">${initial}</span>`}
+                </span>
+                <span class="home-feed-item__name">${safeName}</span>
+            </span>
+        `;
+    };
+
+    const rowsHtml = await Promise.all(rows.map(async (row) => {
+        if (row.event_type === 'purchase') {
+            const buyerName = row.buyer_name || 'Неизвестно';
+            const buyerPhoto = row.buyer_photo_url || null;
+            const itemName = row.item_name || 'Товар';
+            const amount = Number(row.amount_spent || 0).toLocaleString('ru-RU');
+
+            return `
+                <article class="home-feed-item home-feed-item--purchase">
+                    <div class="home-feed-item__meta">
+                        <div class="home-feed-item__names">
+                            ${personHtml(buyerName, buyerPhoto)}
+                            <span class="home-feed-item__arrow">купил(а)</span>
+                            <span class="home-feed-item__name">${esc(itemName)}</span>
+                            <span class="home-feed-item__purchase-price">за ${amount} монет</span>
+                        </div>
+                        <span class="home-feed-item__date">${esc(fmtDateTime(row.date))}</span>
+                    </div>
+                    ${row.item_photo_url ? `
+                        <div class="home-feed-item__sticker home-feed-item__purchase-photo">
+                            <img src="${esc(row.item_photo_url)}" alt="${esc(itemName)}" loading="lazy" />
+                        </div>
+                    ` : ''}
+                </article>
+            `;
+        }
+
+        const stickerUrl = row.sticker_id ? await getStickerUrl(row.sticker_id) : null;
+        const hasMessage = Boolean((row.msg || '').trim());
+
+        return `
+            <article class="home-feed-item">
+                <div class="home-feed-item__meta">
+                    <div class="home-feed-item__names">
+                        ${personHtml(row.from_user_name, row.from_user_photo_url)}
+                        <span class="home-feed-item__arrow">→</span>
+                        ${personHtml(row.to_user_name, row.to_user_photo_url)}
+                    </div>
+                    <span class="home-feed-item__date">${esc(fmtDateTime(row.date))}</span>
+                </div>
+                ${hasMessage ? `<p class="home-feed-item__message">${esc(row.msg)}</p>` : ''}
+                ${stickerUrl ? `
+                    <div class="home-feed-item__sticker">
+                        <img src="${esc(stickerUrl)}" alt="Стикер" loading="lazy" />
+                    </div>
+                ` : ''}
+            </article>
+        `;
+    }));
+
+    container.innerHTML = rowsHtml.join('');
+}
+
+
+function applyHomeFeedFilter() {
+    const currentUserId = Number(getCurrentUserId() || '0');
+    let rows = homeFeedRows;
+
+    if (homeFeedFilter === 'received') {
+        rows = homeFeedRows.filter((row) =>
+            row.event_type !== 'purchase' && Number(row.to_user_bitrix_id || 0) === currentUserId
+        );
+    } else if (homeFeedFilter === 'sent') {
+        rows = homeFeedRows.filter((row) =>
+            row.event_type !== 'purchase' && Number(row.from_user_bitrix_id || 0) === currentUserId
+        );
+    }
+
+    renderHomeFeed(rows);
+
+    const setBtnState = (id, active) => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        btn.classList.toggle('is-active', active);
+        btn.setAttribute('aria-pressed', String(active));
+    };
+
+    setBtnState('home-feed-filter-all', homeFeedFilter === 'all');
+    setBtnState('home-feed-filter-received', homeFeedFilter === 'received');
+    setBtnState('home-feed-filter-sent', homeFeedFilter === 'sent');
+}
+
+
+function initHomeFeedFilters() {
+    const bindings = [
+        ['home-feed-filter-all', 'all'],
+        ['home-feed-filter-received', 'received'],
+        ['home-feed-filter-sent', 'sent'],
+    ];
+
+    bindings.forEach(([id, value]) => {
+        const btn = document.getElementById(id);
+        if (!btn || btn.dataset.homeFeedInit === '1') return;
+        btn.addEventListener('click', () => {
+            homeFeedFilter = value;
+            applyHomeFeedFilter();
+        });
+        btn.dataset.homeFeedInit = '1';
+    });
+}
+
+
+async function loadHomeFeed() {
+    const container = document.getElementById('home-feed-list');
+    if (!container) return;
+
+    container.innerHTML = '<p class="home-feed__empty">Загрузка ленты активности…</p>';
+
+    try {
+        const res = await fetch(`/api/activity/feed?limit=${homeFeedLimit}&offset=0`);
+        if (!res.ok) throw new Error(`Не удалось загрузить ленту (${res.status})`);
+        const data = await res.json();
+        homeFeedRows = Array.isArray(data.events) ? data.events : [];
+        applyHomeFeedFilter();
+    } catch (e) {
+        console.error(e);
+        homeFeedRows = [];
+        container.innerHTML = '<p class="home-feed__empty">Не удалось загрузить ленту активности.</p>';
+    }
+}
+
+
+function renderHomeTopThree(data) {
+    const listEl = document.getElementById('home-top3-list');
+    const subtitleEl = document.getElementById('home-top3-subtitle');
+    if (!listEl) return;
+
+    if (subtitleEl) {
+        subtitleEl.textContent = '';
+        subtitleEl.hidden = true;
+    }
+
+    if (!Array.isArray(data.leaders) || data.leaders.length === 0) {
+        listEl.innerHTML = '<p class="home-top3__empty">В этом месяце пока нет Спасибок.</p>';
+        return;
+    }
+
+    listEl.innerHTML = data.leaders.map((row) => `
+        <article class="home-top3-item">
+            <div class="home-top3-item__avatar">
+                ${row.photo_url ? `<img src="${esc(row.photo_url)}" alt="${esc(row.fio)}" />` : '👤'}
+            </div>
+            <div>
+                <p class="home-top3-item__name">${esc(row.fio)}</p>
+                <p class="home-top3-item__score">Получено: ${Number(row.received || 0).toLocaleString('ru-RU')}</p>
+            </div>
+            <div class="home-top3-item__place">${row.place} место</div>
+        </article>
+    `).join('');
+}
+
+
+async function loadHomeTopThree() {
+    const listEl = document.getElementById('home-top3-list');
+    if (!listEl) return;
+    listEl.innerHTML = '<p class="home-top3__empty">Загружаем рейтинг…</p>';
+
+    try {
+        const res = await fetch('/api/rating/monthly-top-active-game');
+        if (!res.ok) throw new Error(`Не удалось загрузить рейтинг (${res.status})`);
+        const data = await res.json();
+        renderHomeTopThree(data);
+    } catch (e) {
+        console.error(e);
+        listEl.innerHTML = '<p class="home-top3__empty">Не удалось загрузить рейтинг месяца.</p>';
+    }
+}
+
+
+function renderCompactPurchasesList(listEl, rows) {
+    if (!listEl) return;
+
+    if (!rows || rows.length === 0) {
+        listEl.innerHTML = '<p class="home-top3__empty">Покупок пока не было.</p>';
+        return;
+    }
+
+    listEl.innerHTML = rows.map((row) => `
+        <article class="home-purchase-item">
+            <div class="home-purchase-item__thumb">
+                ${row.item_photo_url ? `<img src="${esc(row.item_photo_url)}" alt="${esc(row.item_name)}" loading="lazy" />` : '🛍️'}
+            </div>
+            <div>
+                <p class="home-purchase-item__title">${esc(row.item_name || 'Товар')}</p>
+                <p class="home-purchase-item__meta">${esc(fmtDate(row.created_at))} • ${Number(row.amount_spent || 0).toLocaleString('ru-RU')} монет</p>
+            </div>
+        </article>
+    `).join('');
+}
+
+
+function renderHomePurchases(rows) {
+    renderCompactPurchasesList(document.getElementById('home-purchases-list'), rows);
+}
+
+
+function renderShopPurchases(rows) {
+    renderCompactPurchasesList(document.getElementById('shop-purchases-list'), rows);
+}
+
+
+let compactPurchasesPage = 1;
+let compactPurchasesTotalPages = 1;
+const compactPurchasesPageSize = 5;
+
+
+function buildSmallPages(totalPages, currentPageValue) {
+    const safeTotalPages = Math.max(1, Number(totalPages) || 1);
+    const safeCurrent = Math.min(Math.max(1, Number(currentPageValue) || 1), safeTotalPages);
+    const maxVisible = 7;
+    const pages = [];
+
+    if (safeTotalPages <= maxVisible) {
+        for (let p = 1; p <= safeTotalPages; p++) pages.push(p);
+        return pages;
+    }
+
+    pages.push(1);
+    let start = Math.max(2, safeCurrent - 1);
+    let end = Math.min(safeTotalPages - 1, safeCurrent + 1);
+
+    if (safeCurrent <= 3) {
+        start = 2;
+        end = 4;
+    }
+    if (safeCurrent >= safeTotalPages - 2) {
+        start = safeTotalPages - 3;
+        end = safeTotalPages - 1;
+    }
+
+    if (start > 2) pages.push('…');
+    for (let p = start; p <= end; p++) pages.push(p);
+    if (end < safeTotalPages - 1) pages.push('…');
+    pages.push(safeTotalPages);
+    return pages;
+}
+
+
+function renderCompactPurchasesPages() {
+    const roots = [
+        document.getElementById('home-purchases-pages'),
+        document.getElementById('shop-purchases-pages'),
+    ];
+
+    const safeTotalPages = Math.max(1, Number(compactPurchasesTotalPages) || 1);
+    const safeCurrent = Math.min(Math.max(1, Number(compactPurchasesPage) || 1), safeTotalPages);
+    const pages = buildSmallPages(safeTotalPages, safeCurrent);
+
+    roots.forEach((root) => {
+        if (!root) return;
+        if (safeTotalPages <= 1) {
+            root.hidden = true;
+            root.innerHTML = '';
+            return;
+        }
+
+        root.hidden = false;
+        root.innerHTML = pages.map((p) => {
+            if (p === '…') {
+                return '<span class="games-pages__ellipsis" aria-hidden="true">…</span>';
+            }
+            const page = Number(p);
+            const activeClass = page === safeCurrent ? ' games-pages__btn--active' : '';
+            return `<button type="button" class="games-pages__btn${activeClass}" data-page="${page}" aria-label="Страница ${page}" aria-current="${page === safeCurrent ? 'page' : 'false'}">${page}</button>`;
+        }).join('');
+    });
+}
+
+
+function setCompactPurchasesPaginationLoading() {
+    ['home-purchases-pages', 'shop-purchases-pages'].forEach((id) => {
+        const root = document.getElementById(id);
+        if (!root) return;
+        root.hidden = true;
+    });
+}
+
+
+function initCompactPurchasesPagination() {
+    ['home-purchases-pages', 'shop-purchases-pages'].forEach((id) => {
+        const root = document.getElementById(id);
+        if (!root || root.dataset.init === '1') return;
+
+        root.addEventListener('click', (event) => {
+            const btn = event.target.closest('.games-pages__btn[data-page]');
+            if (!btn) return;
+
+            const page = Number(btn.dataset.page || '1');
+            if (!Number.isFinite(page) || page < 1 || page === compactPurchasesPage) return;
+            loadHomePurchases(page);
+        });
+
+        root.dataset.init = '1';
+    });
+}
+
+
+async function loadHomePurchases(page = compactPurchasesPage) {
+    const userId = getCurrentUserId();
+    if (!userId) return;
+    const requestedPage = Math.max(1, Number(page) || 1);
+
+    const homeListEl = document.getElementById('home-purchases-list');
+    const shopListEl = document.getElementById('shop-purchases-list');
+    if (homeListEl) homeListEl.innerHTML = '<p class="home-top3__empty">Загрузка покупок…</p>';
+    if (shopListEl) shopListEl.innerHTML = '<p class="home-top3__empty">Загрузка покупок…</p>';
+    setCompactPurchasesPaginationLoading();
+
+    try {
+        const res = await fetch(`/api/user/${encodeURIComponent(userId)}/purchases?page=${requestedPage}&limit=${compactPurchasesPageSize}`);
+        if (!res.ok) throw new Error(`Не удалось загрузить покупки (${res.status})`);
+        const data = await res.json();
+        const rows = data.purchases || [];
+        compactPurchasesTotalPages = Math.max(1, Number(data.total_pages) || 1);
+        compactPurchasesPage = Math.min(Math.max(1, Number(data.page) || requestedPage), compactPurchasesTotalPages);
+        renderHomePurchases(rows);
+        renderShopPurchases(rows);
+        renderCompactPurchasesPages();
+    } catch (e) {
+        console.error(e);
+        if (homeListEl) homeListEl.innerHTML = '<p class="home-top3__empty">Не удалось загрузить покупки.</p>';
+        if (shopListEl) shopListEl.innerHTML = '<p class="home-top3__empty">Не удалось загрузить покупки.</p>';
+        compactPurchasesTotalPages = 1;
+        renderCompactPurchasesPages();
+    }
+}
+
+
+async function loadHomeDashboardData() {
+    await Promise.allSettled([
+        refreshHomeComposerInfo(),
+        loadHomeFeed(),
+        loadHomeTopThree(),
+        loadHomePurchases(),
+    ]);
 }
 
 
@@ -611,35 +1193,104 @@ const itemsPerPage = 5;
 
 
 function updatePagination(totalPages) {
+    const safeTotalPages = Math.max(1, Number(totalPages) || 1);
     const prevButton = document.getElementById('prev-page-btn');
     const nextButton = document.getElementById('next-page-btn');
     const currentPageSpan = document.getElementById('current-page');
 
-    currentPageSpan.textContent = `Страница ${currentPage}`;
+    if (currentPage > safeTotalPages) currentPage = safeTotalPages;
+    if (currentPage < 1) currentPage = 1;
 
-    prevButton.disabled = currentPage === 1;
-    nextButton.disabled = currentPage === totalPages;
+    if (currentPageSpan) currentPageSpan.textContent = `Страница ${currentPage}`;
+    if (prevButton) prevButton.disabled = currentPage === 1;
+    if (nextButton) nextButton.disabled = currentPage === safeTotalPages;
+
+    renderFinishedGamesPages(safeTotalPages);
+}
+
+
+function renderFinishedGamesPages(totalPages) {
+    const root = document.getElementById('finished-games-pages');
+    if (!root) return;
+
+    const safeTotalPages = Math.max(1, Number(totalPages) || 1);
+    if (safeTotalPages <= 1) {
+        root.hidden = true;
+        root.innerHTML = '';
+        return;
+    }
+
+    const maxVisible = 7;
+    const pages = [];
+
+    if (safeTotalPages <= maxVisible) {
+        for (let p = 1; p <= safeTotalPages; p++) pages.push(p);
+    } else {
+        pages.push(1);
+        let start = Math.max(2, currentPage - 1);
+        let end = Math.min(safeTotalPages - 1, currentPage + 1);
+
+        if (currentPage <= 3) {
+            start = 2;
+            end = 4;
+        }
+        if (currentPage >= safeTotalPages - 2) {
+            start = safeTotalPages - 3;
+            end = safeTotalPages - 1;
+        }
+
+        if (start > 2) pages.push('…');
+        for (let p = start; p <= end; p++) pages.push(p);
+        if (end < safeTotalPages - 1) pages.push('…');
+        pages.push(safeTotalPages);
+    }
+
+    root.hidden = false;
+    root.innerHTML = pages.map((p) => {
+        if (p === '…') {
+            return '<span class="games-pages__ellipsis" aria-hidden="true">…</span>';
+        }
+        const page = Number(p);
+        const activeClass = page === currentPage ? ' games-pages__btn--active' : '';
+        return `<button type="button" class="games-pages__btn${activeClass}" data-page="${page}" aria-label="Страница ${page}" aria-current="${page === currentPage ? 'page' : 'false'}">${page}</button>`;
+    }).join('');
 }
 
 
 async function loadGames() {
     try {
-        const [activeRes, finishedRes] = await Promise.all([
-            fetch(`/api/games?is_active=true&page=${currentPage}&limit=${itemsPerPage}`),
-            fetch(`/api/games?is_active=false&page=${currentPage}&limit=${itemsPerPage}`)
+        const [activeRes, allRes] = await Promise.all([
+            fetch('/api/games?is_active=true&page=1&limit=1'),
+            fetch('/api/games/all')
         ]);
         if (!activeRes.ok) throw new Error(`Не удалось загрузить активную игру (${activeRes.status})`);
-        if (!finishedRes.ok) throw new Error(`Не удалось загрузить завершённые игры (${finishedRes.status})`);
+        if (!allRes.ok) throw new Error(`Не удалось загрузить список игр (${allRes.status})`);
 
-        const activeGames = await activeRes.json();
-        const finishedGamesData = await finishedRes.json();
+        const activePayload = await activeRes.json();
+        const allGames = await allRes.json();
 
-        currentActiveGame = activeGames[0] || null;
-        finishedGames = finishedGamesData.games;
-        const totalPages = finishedGamesData.total_pages;
+        const activeRows = Array.isArray(activePayload?.games) ? activePayload.games : [];
+        currentActiveGame = activeRows[0] || null;
 
-        await renderActiveGame(activeGames.games);
-        renderFinishedGames(finishedGamesData.games);
+        const now = Date.now();
+        const completedGames = (Array.isArray(allGames) ? allGames : [])
+            .filter((g) => {
+                if (!g || g.game_is_active) return false;
+                if (!g.game_end) return false;
+                const endTs = new Date(g.game_end).getTime();
+                return Number.isFinite(endTs) && endTs < now;
+            })
+            .sort((a, b) => new Date(b.game_end).getTime() - new Date(a.game_end).getTime());
+
+        const totalPages = Math.max(1, Math.ceil(completedGames.length / itemsPerPage));
+        if (currentPage > totalPages) currentPage = totalPages;
+        if (currentPage < 1) currentPage = 1;
+
+        const offset = (currentPage - 1) * itemsPerPage;
+        finishedGames = completedGames.slice(offset, offset + itemsPerPage);
+
+        await renderActiveGame(activeRows);
+        renderFinishedGames(finishedGames);
 
         updatePagination(totalPages);
     } catch (e) {
@@ -647,6 +1298,7 @@ async function loadGames() {
         toast(e.message || 'Ошибка загрузки игр');
         renderActiveGame([]);
         renderFinishedGames([]);
+        updatePagination(1);
     }
 }
 
@@ -719,11 +1371,17 @@ async function refreshGameLikesInfo() {
     try {
         const likesInfo = await fetchLikesInfo(userId);
 
-        if (likesInfo && likesInfo.received_likes !== null && likesInfo.received_likes !== undefined) {
+        if (likesInfo?.has_active_game && likesInfo.received_likes !== null && likesInfo.received_likes !== undefined) {
             document.getElementById('game-thanks-received').textContent =
                 `Получено Спасибок в текущей игре: ${likesInfo.received_likes ?? 0}`;
             document.getElementById('game-thanks-limit').textContent =
                 `Остаток Спасибок в текущей игре: ${likesInfo.remaining_likes ?? 0}`;
+            const receivedValueEl = document.getElementById('game-thanks-received-value');
+            const limitValueEl = document.getElementById('game-thanks-limit-value');
+            const sentValueEl = document.getElementById('game-thanks-sent-value');
+            if (receivedValueEl) receivedValueEl.textContent = String(likesInfo.received_likes ?? 0);
+            if (limitValueEl) limitValueEl.textContent = String(likesInfo.remaining_likes ?? 0);
+            if (sentValueEl) sentValueEl.textContent = String(likesInfo.sent_likes ?? 0);
 
             container.hidden = false;
         }
@@ -736,6 +1394,13 @@ async function refreshGameLikesInfo() {
 async function renderActiveGame(rows) {
     const link       = document.getElementById('active-game-link');
     const empty      = document.getElementById('active-game-empty');
+    const block      = document.getElementById('active-game-block');
+    const descEl     = document.getElementById('active-game-description');
+    const datesEl    = document.getElementById('active-game-dates');
+    const rulesEl    = document.getElementById('active-game-rules');
+    const receivedValueEl = document.getElementById('game-thanks-received-value');
+    const limitValueEl = document.getElementById('game-thanks-limit-value');
+    const sentValueEl = document.getElementById('game-thanks-sent-value');
 
     const statsContainer = document.getElementById('game-stats-container');
     const receivedEl = document.getElementById('game-thanks-received');
@@ -745,10 +1410,26 @@ async function renderActiveGame(rows) {
 
     if (!rows || !rows.length) {
         currentActiveGame = null;
+        if (block) block.classList.add('games-active--empty');
         link.hidden = true;
         link.textContent = '';
         empty.hidden = false;
         statsContainer.hidden = true;
+        if (descEl) {
+            descEl.hidden = true;
+            descEl.textContent = '';
+        }
+        if (datesEl) {
+            datesEl.hidden = true;
+            datesEl.textContent = '';
+        }
+        if (rulesEl) {
+            rulesEl.hidden = true;
+            rulesEl.textContent = '';
+        }
+        if (receivedValueEl) receivedValueEl.textContent = '0';
+        if (limitValueEl) limitValueEl.textContent = '0';
+        if (sentValueEl) sentValueEl.textContent = '0';
 
         receivedEl.textContent = 'Получено Спасибок в текущей игре: —';
         limitEl.textContent    = 'Остаток Спасибок в текущей игре: —';
@@ -757,19 +1438,39 @@ async function renderActiveGame(rows) {
 
     const g = rows[0];
     currentActiveGame = g;
+    if (block) block.classList.remove('games-active--empty');
 
     link.textContent = g.name || 'Без названия';
     link.hidden = false;
     empty.hidden = true;
     statsContainer.hidden = false;
 
+    if (descEl) {
+        descEl.textContent = '';
+        descEl.hidden = true;
+    }
+    if (datesEl) {
+        datesEl.textContent = `${fmtDate(g.game_start)} — ${fmtDate(g.game_end)}`;
+        datesEl.hidden = false;
+    }
+    if (rulesEl) {
+        rulesEl.textContent = '';
+        rulesEl.hidden = true;
+    }
+    if (sentValueEl) sentValueEl.textContent = '…';
+
     receivedEl.textContent = 'Получено Спасибок в текущей игре: …';
     limitEl.textContent    = 'Остаток Спасибок в текущей игре: …';
+    if (receivedValueEl) receivedValueEl.textContent = '…';
+    if (limitValueEl) limitValueEl.textContent = '…';
 
     const userId = getCurrentUserId();
     if (!userId) {
         receivedEl.textContent = 'Получено Спасибок в текущей игре: —';
         limitEl.textContent    = 'Остаток Спасибок в текущей игре: —';
+        if (receivedValueEl) receivedValueEl.textContent = '0';
+        if (limitValueEl) limitValueEl.textContent = '0';
+        if (sentValueEl) sentValueEl.textContent = '0';
         return;
     }
 
@@ -780,12 +1481,17 @@ async function renderActiveGame(rows) {
             `Получено Спасибок в текущей игре: ${likesInfo.received_likes ?? 0}`;
         limitEl.textContent =
             `Остаток Спасибок в текущей игре: ${likesInfo.remaining_likes ?? 0}`;
+        if (receivedValueEl) receivedValueEl.textContent = String(likesInfo.received_likes ?? 0);
+        if (limitValueEl) limitValueEl.textContent = String(likesInfo.remaining_likes ?? 0);
+        if (sentValueEl) sentValueEl.textContent = String(likesInfo.sent_likes ?? 0);
 
     } catch (e) {
         console.error(e);
         toast(e.message || 'Не удалось получить информацию о Спасибках');
         receivedEl.textContent = 'Получено Спасибок в текущей игре: —';
         limitEl.textContent    = 'Остаток Спасибок в текущей игре: —';
+        if (receivedValueEl) receivedValueEl.textContent = '0';
+        if (limitValueEl) limitValueEl.textContent = '0';
     }
 }
 
@@ -906,7 +1612,7 @@ function renderGameRating(rows, containerId = 'game-modal-rating') {
 
 
 let overallRatingPage = 1;
-const overallRatingLimit = 5;
+const overallRatingLimit = 10;
 let overallRatingTotalPages = 1;
 
 
@@ -956,6 +1662,35 @@ async function loadOverallRating(page = overallRatingPage) {
 
 
 function renderFinishedGames(rows) {
+    const archiveList = document.getElementById('games-archive-list');
+
+    if (archiveList) {
+        if (!rows || !rows.length) {
+            archiveList.innerHTML = '<p class="home-feed__empty">Завершённых игр пока нет.</p>';
+        } else {
+            archiveList.innerHTML = rows.map((g) => `
+                <article class="games-archive__item">
+                    <button type="button" class="games-archive__open" data-game-id="${g.id}" aria-label="Открыть игру ${esc(g.name ?? 'Без названия')}">
+                        <span class="games-archive__thumb" aria-hidden="true">❤</span>
+                        <span class="games-archive__content">
+                            <span class="games-archive__name">${esc(g.name ?? 'Без названия')}</span>
+                            <span class="games-archive__dates">${esc(fmtDate(g.game_start))} — ${esc(fmtDate(g.game_end))}</span>
+                        </span>
+                    </button>
+                </article>
+            `).join('');
+
+            archiveList.querySelectorAll('.games-archive__open').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const id = Number(btn.dataset.gameId);
+                    const game = finishedGames.find((item) => item.id === id);
+                    if (!game) return;
+                    openGameModalForGame(game, { isActive: false });
+                });
+            });
+        }
+    }
+
     const table = document.getElementById('finished-games');
     if (!table) return;
     let tbody = table.querySelector('tbody');
@@ -1007,7 +1742,10 @@ function renderShopItems(items) {
         return;
     }
 
-    root.innerHTML = items.map(item => `
+    root.innerHTML = items.map(item => {
+        const price = Number(item.price ?? 0).toLocaleString('ru-RU');
+        const stock = Number(item.stock ?? 0);
+        return `
         <article class="shop-card" data-item-id="${item.id}">
             <div class="shop-card__media">
                 ${
@@ -1022,26 +1760,35 @@ function renderShopItems(items) {
             </div>
             <div class="shop-card__info">
                 <h3 class="shop-card__title">${esc(item.name ?? 'Без названия')}</h3>
-                <p class="shop-card__description">
+                <p
+                    class="shop-card__description"
+                    role="button"
+                    tabindex="0"
+                    aria-expanded="false"
+                    title="Нажмите, чтобы развернуть описание"
+                >
                     ${esc(item.description || 'Без описания')}
                 </p>
                 <p class="shop-card__price">
-                    Цена: ${Number(item.price ?? 0).toLocaleString('ru-RU')}
+                    Цена: ${price} монет
                 </p>
                 <p class="shop-card__stock">
-                    Остаток: ${item.stock ?? 0}
+                    Осталось ${stock} шт.
                 </p>
                 <button
                     class="btn btn--primary btn--tiny shop-card__buy"
                     type="button"
                     data-item-id="${item.id}"
                     data-item-price="${item.price}"
+                    data-item-name="${esc(item.name ?? 'Товар')}"
+                    ${stock <= 0 ? 'disabled' : ''}
                 >
-                    Купить
+                    Купить за ${price}
                 </button>
             </div>
         </article>
-    `).join('');
+    `;
+    }).join('');
 }
 
 
@@ -1113,9 +1860,104 @@ function initShopImageModal() {
 }
 
 
+function askPurchaseConfirm(itemName, priceText, button = null) {
+    const modal = document.getElementById('purchase-confirm-modal');
+    const messageEl = document.getElementById('purchase-confirm-message');
+    const okBtn = document.getElementById('purchase-confirm-ok');
+    const cancelBtn = document.getElementById('purchase-confirm-cancel');
+    const closeBtn = document.getElementById('purchase-confirm-close');
+    const overlay = modal?.querySelector('.modal__overlay');
+
+    if (!modal || !messageEl || !okBtn || !cancelBtn || !closeBtn || !overlay) {
+        if (!button) {
+            return Promise.resolve(false);
+        }
+        // Fallback for cached/old HTML without confirm modal:
+        // require second click within 5 seconds.
+        const now = Date.now();
+        const confirmUntil = Number(button.dataset.confirmUntil || 0);
+        if (confirmUntil > now) {
+            const originalLabel = button.dataset.originalBuyLabel || button.textContent || 'Купить';
+            delete button.dataset.confirmUntil;
+            delete button.dataset.confirmToken;
+            button.textContent = originalLabel;
+            return Promise.resolve(true);
+        }
+
+        const originalLabel = button.textContent || 'Купить';
+        const token = String(now);
+        button.dataset.originalBuyLabel = originalLabel;
+        button.dataset.confirmUntil = String(now + 5000);
+        button.dataset.confirmToken = token;
+        button.textContent = 'Подтвердить';
+        toast('Подтвердите покупку повторным нажатием');
+
+        setTimeout(() => {
+            if (button.dataset.confirmToken !== token) return;
+            delete button.dataset.confirmUntil;
+            delete button.dataset.confirmToken;
+            button.textContent = button.dataset.originalBuyLabel || originalLabel;
+        }, 5200);
+
+        return Promise.resolve(false);
+    }
+
+    messageEl.textContent = `Купить «${itemName}» за ${priceText} монет?`;
+
+    return new Promise((resolve) => {
+        let finished = false;
+
+        const done = (result) => {
+            if (finished) return;
+            finished = true;
+            cleanup();
+            modal.hidden = true;
+            modal.setAttribute('aria-hidden', 'true');
+            resolve(result);
+        };
+
+        const onKeyDown = (event) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                done(false);
+            }
+        };
+
+        const onOk = (event) => {
+            event.preventDefault();
+            done(true);
+        };
+
+        const onCancel = (event) => {
+            event.preventDefault();
+            done(false);
+        };
+
+        const cleanup = () => {
+            okBtn.removeEventListener('click', onOk);
+            cancelBtn.removeEventListener('click', onCancel);
+            closeBtn.removeEventListener('click', onCancel);
+            overlay.removeEventListener('click', onCancel);
+            document.removeEventListener('keydown', onKeyDown);
+        };
+
+        okBtn.addEventListener('click', onOk);
+        cancelBtn.addEventListener('click', onCancel);
+        closeBtn.addEventListener('click', onCancel);
+        overlay.addEventListener('click', onCancel);
+        document.addEventListener('keydown', onKeyDown);
+
+        modal.hidden = false;
+        modal.setAttribute('aria-hidden', 'false');
+        okBtn.focus();
+    });
+}
+
+
 async function handlePurchase(button) {
     const itemId = button.getAttribute('data-item-id');
     const itemPriceRaw = button.getAttribute('data-item-price');
+    const itemName = button.getAttribute('data-item-name') || 'товар';
 
     const buyerId = getCurrentUserId();
     if (!buyerId) {
@@ -1126,6 +1968,12 @@ async function handlePurchase(button) {
     const itemPrice = parseInt(itemPriceRaw ?? '0', 10);
     if (!itemId || !itemPrice) {
         toast('Некорректные данные товара');
+        return;
+    }
+
+    const priceText = Number(itemPrice || 0).toLocaleString('ru-RU');
+    const isConfirmed = await askPurchaseConfirm(itemName, priceText, button);
+    if (!isConfirmed) {
         return;
     }
 
@@ -1152,7 +2000,7 @@ async function handlePurchase(button) {
             throw new Error(errorData.detail || 'Ошибка покупки');
         }
 
-        const result = await response.json();
+        await response.json();
         toast('Товар успешно куплен!');
         await loadPurchasesHistory();
         await loadShopItems();
@@ -1171,15 +2019,6 @@ async function handlePurchase(button) {
             }
         }
 
-        const balanceEl = document.getElementById('current_user-balance');
-        if (balanceEl) {
-            const normalized = balanceEl.textContent
-                .replace(/\s/g, '')
-                .replace(/\u00A0/g, '');
-            const currentBalance = parseInt(normalized || '0', 10);
-            const newBalance = Math.max(currentBalance - itemPrice, 0);
-            balanceEl.textContent = newBalance.toLocaleString('ru-RU');
-        }
     } catch (error) {
         toast(`Ошибка: ${error.message}`);
         console.error('Ошибка покупки:', error);
@@ -1198,6 +2037,145 @@ async function handlePurchase(button) {
 let settingsGamesLoaded = false;
 let settingsGames = [];
 let currentEditingGameId = null;
+let gameParticipantCandidates = [];
+let gameParticipantCandidatesLoaded = false;
+
+
+function normalizeParticipantSearch(value) {
+    return String(value ?? '')
+        .toLowerCase()
+        .replaceAll('ё', 'е')
+        .trim();
+}
+
+
+async function loadGameParticipantCandidates() {
+    if (gameParticipantCandidatesLoaded) {
+        return gameParticipantCandidates;
+    }
+
+    const res = await fetch('/api/users?only_gamers=true');
+    if (!res.ok) {
+        throw new Error(`Не удалось загрузить сотрудников для игры (${res.status})`);
+    }
+    const data = await res.json();
+    gameParticipantCandidates = (Array.isArray(data) ? data : [])
+        .slice()
+        .sort((a, b) => {
+            const aName = `${a.lastname || ''} ${a.name || ''}`.trim().toLowerCase();
+            const bName = `${b.lastname || ''} ${b.name || ''}`.trim().toLowerCase();
+            return aName.localeCompare(bName, 'ru');
+        });
+    gameParticipantCandidatesLoaded = true;
+    return gameParticipantCandidates;
+}
+
+
+function getGameParticipantsPickerElements(prefix) {
+    return {
+        search: document.getElementById(`${prefix}-participants-search`),
+        list: document.getElementById(`${prefix}-participants-list`),
+        selectAllBtn: document.getElementById(`${prefix}-participants-select-all`),
+        clearBtn: document.getElementById(`${prefix}-participants-clear`),
+    };
+}
+
+
+function ensureGameParticipantsPickerState(prefix) {
+    const { list } = getGameParticipantsPickerElements(prefix);
+    if (!list) return null;
+    if (!(list._selectedIds instanceof Set)) {
+        list._selectedIds = new Set();
+    }
+    return list;
+}
+
+
+function setGameParticipantsPickerSelection(prefix, ids = []) {
+    const list = ensureGameParticipantsPickerState(prefix);
+    if (!list) return;
+    list._selectedIds = new Set((Array.isArray(ids) ? ids : []).map((id) => String(id)));
+}
+
+
+function getGameParticipantsPickerSelection(prefix) {
+    const list = ensureGameParticipantsPickerState(prefix);
+    if (!list) return [];
+    return [...list._selectedIds]
+        .map((id) => Number(id))
+        .filter((id) => Number.isFinite(id) && id > 0);
+}
+
+
+function renderGameParticipantsPicker(prefix) {
+    const { search, list } = getGameParticipantsPickerElements(prefix);
+    if (!list) return;
+    ensureGameParticipantsPickerState(prefix);
+
+    const selectedIds = list._selectedIds;
+    const query = normalizeParticipantSearch(search?.value || '');
+    const rows = gameParticipantCandidates.filter((u) => {
+        if (!query) return true;
+        const fullName = [u.name, u.lastname].filter(Boolean).join(' ');
+        const haystack = normalizeParticipantSearch([fullName, u.email, u.position, u.bitrix_id].filter(Boolean).join(' '));
+        return haystack.includes(query);
+    });
+
+    if (!rows.length) {
+        list.innerHTML = '<p class="game-participants-picker__empty">Сотрудники не найдены.</p>';
+        return;
+    }
+
+    list.innerHTML = rows.map((u) => {
+        const fullName = [u.name, u.lastname].filter(Boolean).join(' ') || '—';
+        const checked = selectedIds.has(String(u.bitrix_id)) ? ' checked' : '';
+        const initial = esc((fullName.trim().charAt(0) || 'С').toUpperCase());
+        return `
+            <label class="game-participants-picker__item" data-employee-id="${u.bitrix_id}">
+                <input type="checkbox" value="${u.bitrix_id}"${checked}>
+                <span class="game-participants-picker__avatar" aria-hidden="true">
+                    ${u.photo_url ? `<img src="${esc(u.photo_url)}" alt="">` : initial}
+                </span>
+                <span class="game-participants-picker__name" title="${esc(fullName)}">${esc(fullName)}</span>
+            </label>
+        `;
+    }).join('');
+}
+
+
+function initGameParticipantsPicker(prefix) {
+    const { search, list, selectAllBtn, clearBtn } = getGameParticipantsPickerElements(prefix);
+    if (!list) return;
+    ensureGameParticipantsPickerState(prefix);
+
+    if (list.dataset.init === '1') return;
+
+    search?.addEventListener('input', () => {
+        renderGameParticipantsPicker(prefix);
+    });
+
+    list.addEventListener('change', (event) => {
+        const checkbox = event.target.closest('input[type="checkbox"]');
+        if (!checkbox) return;
+        const selectedIds = list._selectedIds || new Set();
+        const id = String(checkbox.value || '');
+        if (checkbox.checked) selectedIds.add(id);
+        else selectedIds.delete(id);
+        list._selectedIds = selectedIds;
+    });
+
+    selectAllBtn?.addEventListener('click', () => {
+        list._selectedIds = new Set(gameParticipantCandidates.map((u) => String(u.bitrix_id)));
+        renderGameParticipantsPicker(prefix);
+    });
+
+    clearBtn?.addEventListener('click', () => {
+        list._selectedIds = new Set();
+        renderGameParticipantsPicker(prefix);
+    });
+
+    list.dataset.init = '1';
+}
 
 
 async function loadSettingsGames() {
@@ -1368,9 +2346,25 @@ function initSettingsNav() {
             bodyEl.innerHTML = '<p class="placeholder">Загружаем историю покупок…</p>';
 
             try {
-                loadPurchasesForSettings();
+                settingsPurchasesPage = 1;
+                loadPurchasesForSettings(1, settingsPurchasesPageSize);
             } catch (err) {
                 bodyEl.innerHTML = '<p class="placeholder">Не удалось загрузить историю покупок</p>';
+            }
+        } else if (section === 'events') {
+            if (titleEl) titleEl.textContent = 'События';
+            if (createGameBtn) createGameBtn.hidden = true;
+            if (createShopBtn) createShopBtn.hidden = true;
+            if (updateEmployeesBtn) updateEmployeesBtn.hidden = true;
+            if (showStickerCreateModalBtn) showStickerCreateModalBtn.hidden = true;
+
+            bodyEl.innerHTML = '<p class="placeholder">Загружаем события…</p>';
+
+            try {
+                settingsEventsPage = 1;
+                await loadSettingsEvents(1, settingsEventsPageSize);
+            } catch (err) {
+                bodyEl.innerHTML = '<p class="placeholder">Не удалось загрузить события</p>';
             }
         } else if (section === 'stickers') {
             if (titleEl) titleEl.textContent = 'Список стикеров';
@@ -1397,7 +2391,7 @@ function initSettingsNav() {
         const id = Number(gameEditBtn.dataset.gameId);
         const game = settingsGames.find(g => g.id === id);
         if (!game) return;
-        openGameEditModal(game);
+        await openGameEditModal(game);
         return;
     }
 
@@ -1475,7 +2469,7 @@ function isoToInputDate(iso) {
 }
 
 
-function openGameEditModal(game) {
+async function openGameEditModal(game) {
     const modal = document.getElementById('game-edit-modal');
     if (!modal || !game) return;
 
@@ -1503,6 +2497,22 @@ function openGameEditModal(game) {
     const hintEl = modal.querySelector('#game-edit-active-hint');
     if (hintEl && isActiveEl) {
         hintEl.hidden = !isActiveEl.checked;
+    }
+
+    try {
+        await loadGameParticipantCandidates();
+        initGameParticipantsPicker('game-edit');
+        setGameParticipantsPickerSelection(
+            'game-edit',
+            Array.isArray(game.participant_ids) ? game.participant_ids : []
+        );
+        const picker = getGameParticipantsPickerElements('game-edit');
+        if (picker.search) picker.search.value = '';
+        renderGameParticipantsPicker('game-edit');
+    } catch (err) {
+        console.error(err);
+        toast(err.message || 'Не удалось загрузить список участников');
+        return;
     }
 
     modal.hidden = false;
@@ -1565,13 +2575,19 @@ async function submitGameEditForm(e) {
         payload.game_is_active = isActiveEl.checked;
     }
 
+    payload.participant_ids = getGameParticipantsPickerSelection('game-edit');
+
     try {
         if (submitBtn) {
             submitBtn.disabled = true;
             submitBtn.textContent = 'Сохраняем...';
         }
 
-        const res = await fetch(`/api/games/${currentEditingGameId}`, {
+        const adminId = getCurrentUserId();
+        const gameUpdateUrl = adminId
+            ? `/api/games/${currentEditingGameId}?admin_id=${encodeURIComponent(adminId)}`
+            : `/api/games/${currentEditingGameId}`;
+        const res = await fetch(gameUpdateUrl, {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
@@ -1617,7 +2633,7 @@ async function submitGameEditForm(e) {
 }
 
 
-function openGameCreateModal() {
+async function openGameCreateModal() {
     const modal = document.getElementById('game-create-modal');
     if (!modal) return;
 
@@ -1635,6 +2651,19 @@ function openGameCreateModal() {
     const hintEl = modal.querySelector('#game-create-active-hint');
     if (hintEl && isActiveEl) {
         hintEl.hidden = !isActiveEl.checked;
+    }
+
+    try {
+        await loadGameParticipantCandidates();
+        initGameParticipantsPicker('game-create');
+        setGameParticipantsPickerSelection('game-create', []);
+        const picker = getGameParticipantsPickerElements('game-create');
+        if (picker.search) picker.search.value = '';
+        renderGameParticipantsPicker('game-create');
+    } catch (err) {
+        console.error(err);
+        toast(err.message || 'Не удалось загрузить список участников');
+        return;
     }
 
     modal.hidden = false;
@@ -1691,13 +2720,19 @@ async function submitGameCreateForm(e) {
         payload.game_is_active = Boolean(isActiveEl.checked);
     }
 
+    payload.participant_ids = getGameParticipantsPickerSelection('game-create');
+
     try {
         if (submitBtn) {
             submitBtn.disabled = true;
             submitBtn.textContent = 'Создаём...';
         }
 
-        const res = await fetch('/api/games', {
+        const adminId = getCurrentUserId();
+        const gameCreateUrl = adminId
+            ? `/api/games?admin_id=${encodeURIComponent(adminId)}`
+            : '/api/games';
+        const res = await fetch(gameCreateUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1734,7 +2769,11 @@ async function submitGameCreateForm(e) {
 
 async function deleteGame(gameId) {
     try {
-        const res = await fetch(`/api/games/${gameId}`, {
+        const adminId = getCurrentUserId();
+        const gameDeleteUrl = adminId
+            ? `/api/games/${gameId}?admin_id=${encodeURIComponent(adminId)}`
+            : `/api/games/${gameId}`;
+        const res = await fetch(gameDeleteUrl, {
             method: 'DELETE',
         });
 
@@ -2004,7 +3043,11 @@ async function submitShopItemCreateForm(e) {
             submitBtn.textContent = 'Создаём...';
         }
 
-        const res = await fetch('/api/items', {
+        const adminId = getCurrentUserId();
+        const itemCreateUrl = adminId
+            ? `/api/items?admin_id=${encodeURIComponent(adminId)}`
+            : '/api/items';
+        const res = await fetch(itemCreateUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -2040,7 +3083,11 @@ async function submitShopItemCreateForm(e) {
 
 async function deleteItem(id) {
     try {
-        const res = await fetch(`/api/items/${id}`, {
+        const adminId = getCurrentUserId();
+        const itemDeleteUrl = adminId
+            ? `/api/items/${id}?admin_id=${encodeURIComponent(adminId)}`
+            : `/api/items/${id}`;
+        const res = await fetch(itemDeleteUrl, {
             method: 'DELETE',
         });
 
@@ -2213,7 +3260,11 @@ async function submitShopItemEditForm(e) {
             submitBtn.textContent = 'Сохраняем...';
         }
 
-        const res = await fetch(`/api/items/${currentEditingItemId}`, {
+        const adminId = getCurrentUserId();
+        const itemUpdateUrl = adminId
+            ? `/api/items/${currentEditingItemId}?admin_id=${encodeURIComponent(adminId)}`
+            : `/api/items/${currentEditingItemId}`;
+        const res = await fetch(itemUpdateUrl, {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
@@ -2312,6 +3363,42 @@ async function updateEmployeesFromBitrix() {
 let settingsEmployees = [];
 let settingsEmployeesLimit = 25;
 let settingsEmployeesHasMore = true;
+let settingsEmployeesSearchQuery = '';
+
+
+function normalizeSettingsEmployeeSearch(value) {
+    return String(value ?? '')
+        .toLowerCase()
+        .replaceAll('ё', 'е')
+        .trim();
+}
+
+
+function applySettingsEmployeesSearchFilter() {
+    const body = document.querySelector('#settings #settings-body');
+    if (!body) return;
+
+    const rows = [...body.querySelectorAll('[data-settings-employee-row]')];
+    const emptyEl = body.querySelector('#settings-employees-search-empty');
+    if (!rows.length) {
+        if (emptyEl) emptyEl.hidden = true;
+        return;
+    }
+
+    const query = normalizeSettingsEmployeeSearch(settingsEmployeesSearchQuery);
+    let visibleCount = 0;
+
+    rows.forEach((row) => {
+        const haystack = row.dataset.search || '';
+        const isMatch = !query || haystack.includes(query);
+        row.hidden = !isMatch;
+        if (isMatch) visibleCount += 1;
+    });
+
+    if (emptyEl) {
+        emptyEl.hidden = visibleCount > 0 || !query;
+    }
+}
 
 
 async function loadSettingsEmployees(limit = settingsEmployeesLimit, offset = 0, { append = false } = {}) {
@@ -2342,6 +3429,8 @@ async function loadSettingsEmployees(limit = settingsEmployeesLimit, offset = 0,
 
 async function reloadSettingsEmployees() {
     settingsEmployeesHasMore = true;
+    gameParticipantCandidatesLoaded = false;
+    gameParticipantCandidates = [];
     await loadSettingsEmployees(settingsEmployeesLimit, 0, { append: false });
 }
 
@@ -2362,7 +3451,14 @@ function renderSettingsEmployees(employees) {
         const coins = (u.coins != null) ? Number(u.coins).toLocaleString('ru-RU') : '0';
         const isGamerLabel = u.is_gamer ? 'Да' : 'Нет';
         const isAdminLabel = u.is_admin ? 'Да' : 'Нет';
-        const likes = (u.likes != null) ? Number(u.likes).toLocaleString('ru-RU') : '0';
+        const searchIndex = normalizeSettingsEmployeeSearch([
+            fullName,
+            u.email,
+            u.position,
+            u.name,
+            u.lastname,
+            u.bitrix_id,
+        ].filter(Boolean).join(' '));
         const avatarHtml = `
             <span class="settings-employee__avatar">
                 ${u.photo_url ? `<img src="${u.photo_url}" alt="">` : ''}
@@ -2370,7 +3466,7 @@ function renderSettingsEmployees(employees) {
         `;
 
         return `
-            <tr>
+            <tr data-settings-employee-row="1" data-search="${esc(searchIndex)}">
                 <td class="settings-employee__name">
                     ${avatarHtml}
                     <span class="settings-employee__fio">${esc(fullName)}</span>
@@ -2393,6 +3489,19 @@ function renderSettingsEmployees(employees) {
     }).join('');
 
     body.innerHTML = `
+        <div class="settings-search">
+            <label class="settings-search__field" for="settings-employees-search">
+                <span class="settings-search__icon" aria-hidden="true">🔎</span>
+                <input
+                    type="search"
+                    id="settings-employees-search"
+                    class="settings-search__input"
+                    placeholder=""
+                    value="${esc(settingsEmployeesSearchQuery)}"
+                    autocomplete="off"
+                >
+            </label>
+        </div>
         <div class="table-wrap">
             <table class="table">
                 <thead>
@@ -2409,6 +3518,9 @@ function renderSettingsEmployees(employees) {
                 </tbody>
             </table>
         </div>
+        <p id="settings-employees-search-empty" class="placeholder settings-search__empty" hidden>
+            По вашему запросу сотрудники не найдены.
+        </p>
         <div class="settings-pagination">
             <button
                 type="button"
@@ -2428,6 +3540,23 @@ function renderSettingsEmployees(employees) {
             loadSettingsEmployees(settingsEmployeesLimit, offset, { append: true });
         });
     }
+
+    const searchInput = document.getElementById('settings-employees-search');
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            settingsEmployeesSearchQuery = searchInput.value || '';
+            applySettingsEmployeesSearchFilter();
+        });
+        searchInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && searchInput.value) {
+                searchInput.value = '';
+                settingsEmployeesSearchQuery = '';
+                applySettingsEmployeesSearchFilter();
+            }
+        });
+    }
+
+    applySettingsEmployeesSearchFilter();
 }
 
 
@@ -2722,9 +3851,7 @@ function initStickerSelector() {
 
     if (!selectorContainer || !selectedInput || !toggleBtn) return;
 
-    let activeButton = null;
-
-    toggleBtn.textContent = 'Выберите стикер';
+    setStickerToggleState(toggleBtn, false, 'Выберите стикер');
 
     toggleBtn.addEventListener('click', () => {
         const isHidden = selectorContainer.hasAttribute('hidden');
@@ -2741,12 +3868,12 @@ function initStickerSelector() {
     selectorContainer.addEventListener('click', (e) => {
         const button = e.target.closest('.sticker-item');
         if (!button) return;
+        const activeButton = selectorContainer.querySelector('.sticker-item--active');
 
         if (activeButton === button) {
             button.classList.remove('sticker-item--active');
-            activeButton = null;
             selectedInput.value = '';
-            toggleBtn.textContent = 'Стикер не выбран';
+            setStickerToggleState(toggleBtn, false, 'Выберите стикер');
             return;
         }
 
@@ -2755,13 +3882,11 @@ function initStickerSelector() {
         }
 
         button.classList.add('sticker-item--active');
-        activeButton = button;
-
         const selectedId = button.dataset.id;
         selectedInput.value = selectedId;
 
         const name = button.dataset.name || 'Стикер выбран';
-        toggleBtn.textContent = name;
+        setStickerToggleState(toggleBtn, true, name);
 
         selectorContainer.setAttribute('hidden', '');
         toggleBtn.setAttribute('aria-expanded', 'false');
@@ -2769,21 +3894,58 @@ function initStickerSelector() {
 }
 
 
-async function loadPurchasesForSettings(page = 1, limit = 10) {
+let settingsPurchasesPage = 1;
+let settingsPurchasesTotalPages = 1;
+const settingsPurchasesPageSize = 15;
+
+
+function renderSettingsPurchasesPages() {
+    const root = document.getElementById('settings-purchases-pages');
+    if (!root) return;
+
+    const safeTotalPages = Math.max(1, Number(settingsPurchasesTotalPages) || 1);
+    const safeCurrent = Math.min(Math.max(1, Number(settingsPurchasesPage) || 1), safeTotalPages);
+
+    if (safeTotalPages <= 1) {
+        root.hidden = true;
+        root.innerHTML = '';
+        return;
+    }
+
+    const pages = buildSmallPages(safeTotalPages, safeCurrent);
+    root.hidden = false;
+    root.innerHTML = pages.map((p) => {
+        if (p === '…') {
+            return '<span class="games-pages__ellipsis" aria-hidden="true">…</span>';
+        }
+        const page = Number(p);
+        const activeClass = page === safeCurrent ? ' games-pages__btn--active' : '';
+        return `<button type="button" class="games-pages__btn${activeClass}" data-page="${page}" aria-label="Страница ${page}" aria-current="${page === safeCurrent ? 'page' : 'false'}">${page}</button>`;
+    }).join('');
+}
+
+
+async function loadPurchasesForSettings(page = settingsPurchasesPage, limit = settingsPurchasesPageSize) {
     const settingsBody = document.getElementById("settings-body");
     if (!settingsBody) return;
+
+    settingsPurchasesPage = Math.max(1, Number(page) || 1);
 
     settingsBody.innerHTML = `
         <p class="placeholder">Загрузка истории покупок…</p>
     `;
 
     try {
-        const response = await fetch(`/api/purchases?page=${page}&limit=${limit}`);
+        const response = await fetch(`/api/purchases?page=${settingsPurchasesPage}&limit=${limit}`);
         if (!response.ok) {
             throw new Error("Не удалось загрузить покупки");
         }
 
         const data = await response.json();
+        settingsPurchasesTotalPages = Math.max(1, Number(data.total_pages) || 1);
+        if (settingsPurchasesPage > settingsPurchasesTotalPages) {
+            settingsPurchasesPage = settingsPurchasesTotalPages;
+        }
 
         if (!data.purchases || data.purchases.length === 0) {
             settingsBody.innerHTML = `
@@ -2831,13 +3993,268 @@ async function loadPurchasesForSettings(page = 1, limit = 10) {
                     </tbody>
                 </table>
             </div>
+            <div id="settings-purchases-pages" class="games-pages" hidden></div>
         `;
+
+        renderSettingsPurchasesPages();
+        const pagesRoot = document.getElementById('settings-purchases-pages');
+        if (pagesRoot && pagesRoot.dataset.init !== '1') {
+            pagesRoot.addEventListener('click', (event) => {
+                const btn = event.target.closest('.games-pages__btn[data-page]');
+                if (!btn) return;
+                const nextPage = Number(btn.dataset.page || '1');
+                if (!Number.isFinite(nextPage) || nextPage < 1 || nextPage === settingsPurchasesPage) return;
+                loadPurchasesForSettings(nextPage, settingsPurchasesPageSize);
+            });
+            pagesRoot.dataset.init = '1';
+        }
 
     } catch (error) {
         console.error(error);
         settingsBody.innerHTML = `
             <p class="placeholder">Не удалось загрузить историю покупок</p>
         `;
+    }
+}
+
+
+let settingsEventsPage = 1;
+let settingsEventsTotalPages = 1;
+const settingsEventsPageSize = 15;
+
+
+function formatSettingsEventType(eventType) {
+    const labels = {
+        game_created: 'Создание игры',
+        game_updated: 'Изменение игры',
+        game_deleted: 'Удаление игры',
+        item_created: 'Создание товара',
+        item_updated: 'Изменение товара',
+        item_deleted: 'Удаление товара',
+        item_purchased: 'Покупка товара',
+        employee_coins_changed: 'Изменение монет',
+    };
+    return labels[eventType] || eventType || 'Событие';
+}
+
+
+function formatSettingsEventFieldLabel(field) {
+    const labels = {
+        name: 'Название',
+        description: 'Описание',
+        price: 'Цена',
+        stock: 'Остаток',
+        is_active: 'Активен',
+        game_start: 'Дата начала',
+        game_end: 'Дата завершения',
+        game_is_active: 'Игра активна',
+        setting_limitParameter: 'Период лимита',
+        setting_limitValue: 'Лимит',
+        setting_limitToOneUser: 'Лимит одному',
+        participant_ids: 'Участники',
+        coins: 'Монеты',
+        is_gamer: 'Участвует в играх',
+        is_admin: 'Админ',
+        is_superadmin: 'Суперадмин',
+    };
+    return labels[field] || field;
+}
+
+
+function formatSettingsEventFieldValue(field, value) {
+    if (value == null) return '—';
+
+    if (field === 'price' || field === 'coins') {
+        return `${Number(value || 0).toLocaleString('ru-RU')} монет`;
+    }
+    if (field === 'stock' || field === 'setting_limitValue' || field === 'setting_limitToOneUser') {
+        return Number(value || 0).toLocaleString('ru-RU');
+    }
+    if (field === 'is_active' || field === 'game_is_active' || field === 'is_gamer' || field === 'is_admin' || field === 'is_superadmin') {
+        return value ? 'Да' : 'Нет';
+    }
+    if (field === 'setting_limitParameter') {
+        const periodMap = {
+            day: 'День',
+            week: 'Неделя',
+            month: 'Месяц',
+            game: 'Игра',
+        };
+        return periodMap[String(value)] || String(value);
+    }
+    if (field === 'game_start' || field === 'game_end' || field === 'created_at') {
+        return fmtDateTime(value);
+    }
+    if (field === 'participant_ids' && Array.isArray(value)) {
+        if (value.length === 0) return 'пусто';
+        return value.join(', ');
+    }
+    if (Array.isArray(value)) {
+        return value.join(', ');
+    }
+    if (typeof value === 'object') {
+        try {
+            return JSON.stringify(value);
+        } catch (_) {
+            return String(value);
+        }
+    }
+    return String(value);
+}
+
+
+function renderSettingsEventDetails(eventRow) {
+    const payload = eventRow?.payload || null;
+    if (!payload || typeof payload !== 'object') {
+        return String(eventRow?.message || '—');
+    }
+
+    if (eventRow.event_type === 'employee_coins_changed') {
+        const oldCoins = Number(payload.old_coins ?? 0).toLocaleString('ru-RU');
+        const newCoins = Number(payload.new_coins ?? 0).toLocaleString('ru-RU');
+        const deltaRaw = Number(payload.delta ?? 0);
+        const deltaAbs = Math.abs(deltaRaw).toLocaleString('ru-RU');
+        const deltaStr = `${deltaRaw >= 0 ? '+' : '-'}${deltaAbs}`;
+        return `Монеты: было ${oldCoins}, стало ${newCoins} (${deltaStr})`;
+    }
+
+    const changedFields = Array.isArray(payload.changed_fields) ? payload.changed_fields : [];
+    const before = payload.before && typeof payload.before === 'object' ? payload.before : null;
+    const after = payload.after && typeof payload.after === 'object' ? payload.after : null;
+
+    if (changedFields.length > 0 && before && after) {
+        const parts = changedFields.map((field) => {
+            const label = formatSettingsEventFieldLabel(field);
+            const beforeText = formatSettingsEventFieldValue(field, before[field]);
+            const afterText = formatSettingsEventFieldValue(field, after[field]);
+            return `${label}: было ${beforeText}, стало ${afterText}`;
+        });
+        return parts.join(' | ');
+    }
+
+    if (changedFields.length > 0) {
+        const labels = changedFields.map(formatSettingsEventFieldLabel);
+        return `Изменены поля: ${labels.join(', ')}`;
+    }
+
+    if (typeof payload.price !== 'undefined') {
+        return `Цена: ${Number(payload.price || 0).toLocaleString('ru-RU')} монет`;
+    }
+
+    return String(eventRow?.message || '—');
+}
+
+
+function renderSettingsEventsPages() {
+    const root = document.getElementById('settings-events-pages');
+    if (!root) return;
+
+    const safeTotalPages = Math.max(1, Number(settingsEventsTotalPages) || 1);
+    const safeCurrent = Math.min(Math.max(1, Number(settingsEventsPage) || 1), safeTotalPages);
+
+    if (safeTotalPages <= 1) {
+        root.hidden = true;
+        root.innerHTML = '';
+        return;
+    }
+
+    const pages = buildSmallPages(safeTotalPages, safeCurrent);
+    root.hidden = false;
+    root.innerHTML = pages.map((p) => {
+        if (p === '…') return '<span class="games-pages__ellipsis" aria-hidden="true">…</span>';
+        const page = Number(p);
+        const activeClass = page === safeCurrent ? ' games-pages__btn--active' : '';
+        return `<button type="button" class="games-pages__btn${activeClass}" data-page="${page}" aria-label="Страница ${page}" aria-current="${page === safeCurrent ? 'page' : 'false'}">${page}</button>`;
+    }).join('');
+}
+
+
+async function loadSettingsEvents(page = settingsEventsPage, limit = settingsEventsPageSize) {
+    const settingsBody = document.getElementById('settings-body');
+    if (!settingsBody) return;
+
+    const userId = getCurrentUserId();
+    if (!userId) {
+        settingsBody.innerHTML = '<p class="placeholder">Нет user_id в URL</p>';
+        return;
+    }
+
+    settingsEventsPage = Math.max(1, Number(page) || 1);
+
+    settingsBody.innerHTML = '<p class="placeholder">Загрузка событий…</p>';
+
+    try {
+        const response = await fetch(`/api/events?user_id=${encodeURIComponent(userId)}&page=${settingsEventsPage}&limit=${limit}`);
+        if (response.status === 403) {
+            settingsBody.innerHTML = '<p class="placeholder">Доступ к разделу есть только у суперадминистраторов.</p>';
+            return;
+        }
+        if (!response.ok) {
+            throw new Error(`Не удалось загрузить события (${response.status})`);
+        }
+
+        const data = await response.json();
+        settingsEventsTotalPages = Math.max(1, Number(data.total_pages) || 1);
+        if (settingsEventsPage > settingsEventsTotalPages) settingsEventsPage = settingsEventsTotalPages;
+
+        const rowsList = Array.isArray(data.events) ? data.events : [];
+        if (!rowsList.length) {
+            settingsBody.innerHTML = '<p class="placeholder">Событий пока нет</p>';
+            return;
+        }
+
+        const rows = rowsList.map((row) => {
+            const dateText = fmtDateTime(row.created_at);
+            const actor = row.actor_name_snapshot || 'Система';
+            const target = row.target_name_snapshot || '—';
+            const eventTypeLabel = formatSettingsEventType(row.event_type);
+            const details = esc(renderSettingsEventDetails(row));
+            return `
+                <tr>
+                    <td>${esc(dateText)}</td>
+                    <td>${esc(actor)}</td>
+                    <td>${esc(eventTypeLabel)}</td>
+                    <td>${esc(target)}</td>
+                    <td>${details}</td>
+                </tr>
+            `;
+        }).join('');
+
+        settingsBody.innerHTML = `
+            <div class="table-wrap">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Дата</th>
+                            <th>Кто</th>
+                            <th>Событие</th>
+                            <th>Объект</th>
+                            <th>Детали</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows}
+                    </tbody>
+                </table>
+            </div>
+            <div id="settings-events-pages" class="games-pages" hidden></div>
+        `;
+
+        renderSettingsEventsPages();
+        const pagesRoot = document.getElementById('settings-events-pages');
+        if (pagesRoot && pagesRoot.dataset.init !== '1') {
+            pagesRoot.addEventListener('click', (event) => {
+                const btn = event.target.closest('.games-pages__btn[data-page]');
+                if (!btn) return;
+                const nextPage = Number(btn.dataset.page || '1');
+                if (!Number.isFinite(nextPage) || nextPage < 1 || nextPage === settingsEventsPage) return;
+                loadSettingsEvents(nextPage, settingsEventsPageSize);
+            });
+            pagesRoot.dataset.init = '1';
+        }
+    } catch (error) {
+        console.error(error);
+        settingsBody.innerHTML = '<p class="placeholder">Не удалось загрузить события</p>';
     }
 }
 
@@ -3052,17 +4469,21 @@ async function reloadSettingsStickers() {
 
 document.addEventListener('DOMContentLoaded', () => {
     initTabs();
+    initHomeSidebarNav();
+    initHomeFeedFilters();
+    initCompactPurchasesPagination();
     loadCurrentUser();
-    initLikesFilters();
-    reloadLikesHistory();
-    document.getElementById('send-thanks-btn')?.addEventListener('click', openThanksModal);
-    document.getElementById('send-thanks-btn-in-game')?.addEventListener('click', openThanksModal);
+    openThanksModal();
+    document.getElementById('send-thanks-btn')?.addEventListener('click', openThanksComposerOnHome);
+    document.getElementById('send-thanks-btn-in-game')?.addEventListener('click', openThanksComposerOnHome);
     const modal = document.getElementById('thanks-modal');
-    modal?.querySelector('#thanks-modal-close')?.addEventListener('click', closeThanksModal);
-    modal?.querySelector('#thanks-modal-cancel')?.addEventListener('click', closeThanksModal);
-    modal?.querySelector('.modal__overlay')?.addEventListener('click', closeThanksModal);
     modal?.querySelector('#thanks-form')?.addEventListener('submit', submitThanks);
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modal?.hidden) closeThanksModal(); });
+    document.getElementById('thanks-inline-reset')?.addEventListener('click', closeThanksModal);
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal?.contains(document.activeElement)) {
+            closeThanksModal();
+        }
+    });
     document.querySelector('.tabs__button[data-tab="game"]')?.addEventListener('click', () => {
         if (!gamesLoaded) {
             gamesLoaded = true;
@@ -3099,6 +4520,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.feather?.replace) feather.replace({ width: 18, height: 18 });
 
     document.querySelector('.tabs__button[data-tab="shop"]')?.addEventListener('click', () => {
+        loadHomePurchases();
         if (!shopLoaded) {
             shopLoaded = true;
             loadShopItems();
@@ -3107,15 +4529,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (document.getElementById('shop')?.classList.contains('tab-content--active')) {
         shopLoaded = true;
+        loadHomePurchases();
         loadShopItems();
     }
 
     const shopRoot = document.getElementById('shop-items');
     if (shopRoot) {
         shopRoot.addEventListener('click', async (event) => {
+            const description = event.target.closest('.shop-card__description');
+            if (description) {
+                const expanded = description.classList.toggle('is-expanded');
+                description.setAttribute('aria-expanded', String(expanded));
+                description.setAttribute(
+                    'title',
+                    expanded ? 'Нажмите, чтобы свернуть описание' : 'Нажмите, чтобы развернуть описание'
+                );
+                return;
+            }
+
             const button = event.target.closest('.shop-card__buy');
             if (!button) return;
             await handlePurchase(button);
+        });
+
+        shopRoot.addEventListener('keydown', (event) => {
+            const description = event.target.closest('.shop-card__description');
+            if (!description) return;
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            event.preventDefault();
+            description.click();
         });
     }
 
@@ -3155,7 +4597,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const gameCreateModal = document.getElementById('game-create-modal');
     if (gameCreateModal) {
         const createGameBtn = document.getElementById('create-game-btn');
-        createGameBtn?.addEventListener('click', openGameCreateModal);
+        createGameBtn?.addEventListener('click', async () => {
+            await openGameCreateModal();
+        });
 
         gameCreateModal.querySelector('#game-create-modal-close')?.addEventListener('click', closeGameCreateModal);
         gameCreateModal.querySelector('#game-create-cancel')?.addEventListener('click', (e) => {
@@ -3277,19 +4721,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initShopImageModal();
 
-    document.getElementById('prev-page-btn').addEventListener('click', () => {
+    document.getElementById('prev-page-btn')?.addEventListener('click', () => {
         if (currentPage > 1) {
             currentPage--;
             loadGames();
         }
     });
 
-    document.getElementById('next-page-btn').addEventListener('click', () => {
+    document.getElementById('next-page-btn')?.addEventListener('click', () => {
         currentPage++;
         loadGames();
     });
 
-    document.getElementById('likes-history-prev-page-btn').addEventListener('click', () => {
+    document.getElementById('finished-games-pages')?.addEventListener('click', (e) => {
+        const btn = e.target.closest('.games-pages__btn');
+        if (!btn) return;
+        const page = Number(btn.dataset.page || '1');
+        if (!Number.isFinite(page) || page < 1 || page === currentPage) return;
+        currentPage = page;
+        loadGames();
+    });
+
+    document.getElementById('likes-history-prev-page-btn')?.addEventListener('click', () => {
         if (currentLikesPage > 1) {
             currentLikesPage--;
             const offset = (currentLikesPage - 1) * likesHistoryLimit;
@@ -3297,7 +4750,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    document.getElementById('likes-history-next-page-btn').addEventListener('click', () => {
+    document.getElementById('likes-history-next-page-btn')?.addEventListener('click', () => {
         currentLikesPage++;
         const offset = (currentLikesPage - 1) * likesHistoryLimit;
         loadLikesHistory(likesHistoryLimit, offset);
@@ -3312,10 +4765,3 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 })
-
-
-
-
-
-
-

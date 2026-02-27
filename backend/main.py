@@ -6,6 +6,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.api.games import router as games_router
+from backend.api.events import router as events_router
 from backend.api.install import router as install_router
 from backend.api.items import router as items_router
 from backend.api.like import router as like_router
@@ -28,6 +29,7 @@ app.include_router(users_router)
 app.include_router(like_router)
 app.include_router(user_router)
 app.include_router(games_router)
+app.include_router(events_router)
 app.include_router(likes_info_router)
 app.include_router(likes_history_router)
 app.include_router(items_router)

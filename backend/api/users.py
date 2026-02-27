@@ -1,12 +1,18 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from sqlalchemy.orm import Session
 
-from backend.models import Employee, EmployeeUpdate, EmployeeShortResponse
+from backend.models import Employee, EmployeeUpdate, EmployeeShortResponse, Game, GameParticipant
 from backend.scripts.database import get_db
 from backend.services.bitrix_users import get_all_users as get_all_users_from_bitrix
 from backend.services.db_get_tokens import get_tokens
 from backend.services.db_save_employee import save_or_update_employees
 from backend.services.employee_audit import build_employee_changes, log_employee_audit
+from backend.services.event_log import (
+    EVENT_EMPLOYEE_COINS_CHANGED,
+    TARGET_EMPLOYEE,
+    employee_full_name,
+    log_event,
+)
 
 router = APIRouter()
 
@@ -15,6 +21,7 @@ async def get_all_users(
     limit: int = 0,
     offset: int = 0,
     only_gamers: bool = False,
+    active_game_only: bool = False,
     db: Session = Depends(get_db),
 ):
     """
@@ -28,6 +35,21 @@ async def get_all_users(
 
     if only_gamers:
         query = query.filter(Employee.is_gamer.is_(True))
+
+    if active_game_only:
+        active_game = (
+            db.query(Game)
+            .filter(Game.game_is_active.is_(True))
+            .first()
+        )
+        if not active_game:
+            return []
+
+        participant_ids_subq = (
+            db.query(GameParticipant.employee_bitrix_id)
+            .filter(GameParticipant.game_id == active_game.id)
+        )
+        query = query.filter(Employee.bitrix_id.in_(participant_ids_subq))
 
     if limit > 0:
         query = query.offset(offset).limit(limit)
@@ -43,6 +65,7 @@ async def get_all_users(
             "coins": user.coins,
             "is_gamer": user.is_gamer,
             "is_admin": user.is_admin,
+            "is_superadmin": getattr(user, "is_superadmin", False),
             "photo_url": user.photo_url
         }
         for user in users
@@ -122,6 +145,30 @@ async def update_employee(
             admin_bitrix_id=admin_id,
             changes=changes,
         )
+
+        if "coins" in changes:
+            old_coins = changes["coins"].get("old")
+            new_coins = changes["coins"].get("new")
+            old_num = int(old_coins or 0)
+            new_num = int(new_coins or 0)
+            delta = new_num - old_num
+            target_name = employee_full_name(employee)
+            log_event(
+                db,
+                event_type=EVENT_EMPLOYEE_COINS_CHANGED,
+                actor_bitrix_id=admin_id,
+                target_type=TARGET_EMPLOYEE,
+                target_id=employee.bitrix_id,
+                target_name_snapshot=target_name,
+                message=f"Изменён баланс монет сотрудника {target_name}: {old_num} -> {new_num}",
+                payload={
+                    "employee_id": employee.bitrix_id,
+                    "employee_name": target_name,
+                    "old_coins": old_num,
+                    "new_coins": new_num,
+                    "delta": delta,
+                },
+            )
 
         for field, value in data.items():
             if field in ("name", "lastname", "coins", "is_gamer", "is_admin"):

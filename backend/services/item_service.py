@@ -6,6 +6,12 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from backend.models import Item, Employee, BuyTransaction
+from backend.services.event_log import (
+    EVENT_ITEM_CREATED,
+    EVENT_ITEM_PURCHASED,
+    TARGET_ITEM,
+    log_event,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +61,27 @@ def execute_buy_transaction(db: Session, item_id: int, buyer_id: int, amount_spe
         )
         db.add(new_buy_transaction)
 
+        buyer_name = f"{(buyer_query.name or '').strip()} {(buyer_query.lastname or '').strip()}".strip() or f"Пользователь {buyer_id}"
+        item_name = item_query.name or f"товар #{item_id}"
+        log_event(
+            db,
+            event_type=EVENT_ITEM_PURCHASED,
+            actor_bitrix_id=buyer_id,
+            target_type=TARGET_ITEM,
+            target_id=item_id,
+            target_name_snapshot=item_name,
+            message=f"{buyer_name} купил(а) {item_name} в приложении Спасибки.",
+            payload={
+                "buyer_id": buyer_id,
+                "buyer_name": buyer_name,
+                "item_id": item_id,
+                "item_name": item_name,
+                "price": int(amount_spent),
+                "coins_after_purchase": int(buyer_query.coins),
+                "stock_after_purchase": int(item_query.stock),
+            },
+        )
+
         db.commit()
         db.refresh(new_buy_transaction)
 
@@ -82,10 +109,29 @@ def execute_buy_transaction(db: Session, item_id: int, buyer_id: int, amount_spe
         )
 
 
-def create_item_service(db: Session, item_data: dict) -> Item:
+def create_item_service(db: Session, item_data: dict, actor_bitrix_id: int | None = None) -> Item:
     try:
         new_item = Item(**item_data)
         db.add(new_item)
+        db.flush()
+        log_event(
+            db,
+            event_type=EVENT_ITEM_CREATED,
+            actor_bitrix_id=actor_bitrix_id,
+            target_type=TARGET_ITEM,
+            target_id=new_item.id,
+            target_name_snapshot=new_item.name,
+            message=f"Создан товар «{new_item.name}»",
+            payload={
+                "id": new_item.id,
+                "name": new_item.name,
+                "description": new_item.description,
+                "price": new_item.price,
+                "stock": new_item.stock,
+                "is_active": new_item.is_active,
+                "photo_url": new_item.photo_url,
+            },
+        )
         db.commit()
         db.refresh(new_item)
         return new_item

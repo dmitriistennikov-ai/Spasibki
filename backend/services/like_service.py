@@ -4,7 +4,7 @@ from datetime import datetime, UTC
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from backend.models import LikeTransaction, Employee, LikeRequest
+from backend.models import LikeTransaction, Employee, LikeRequest, GameParticipant
 from .db_search_active_game import search_active_game
 
 logger = logging.getLogger(__name__)
@@ -21,6 +21,27 @@ def process_like_transaction(db: Session, payload: LikeRequest) -> tuple[int, in
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Нельзя отправить Спасибку: дата завершения игры {active_game.game_end.date()} прошла"
+        )
+
+    participant_ids = {
+        row.employee_bitrix_id
+        for row in (
+            db.query(GameParticipant.employee_bitrix_id)
+            .filter(GameParticipant.game_id == active_game.id)
+            .all()
+        )
+    }
+
+    if payload.from_id not in participant_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Нельзя отправить Спасибку: отправитель не участвует в активной игре",
+        )
+
+    if payload.to_id not in participant_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Нельзя отправить Спасибку: получатель не участвует в активной игре",
         )
 
     count_in_this_game = (
