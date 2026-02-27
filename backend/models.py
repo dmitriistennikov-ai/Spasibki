@@ -3,7 +3,7 @@ from enum import Enum as PyEnum
 from typing import Optional, Literal, List
 
 from pydantic import BaseModel, Field, ConfigDict
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Enum, Index, Text, func, JSON
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Enum, Index, Text, func, JSON, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from backend.scripts.database import Base
@@ -45,6 +45,7 @@ class Employee(Base):
     coins = Column(Integer, nullable=False, default=0)
     is_gamer = Column(Boolean, default=True, nullable=False)
     is_admin = Column(Boolean, default=False, nullable=False)
+    is_superadmin = Column(Boolean, default=False, nullable=False)
     photo_url = Column(String, nullable=True)
 
     auth = relationship("BitrixAuth", uselist=False, back_populates="employee")
@@ -56,6 +57,7 @@ class EmployeeShortResponse(BaseModel):
     coins: int
     is_gamer: bool
     is_admin: bool
+    is_superadmin: bool = False
     photo_url: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
@@ -89,6 +91,47 @@ class EmployeeAudit(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     changes = Column(JSON, nullable=False)
     employee = relationship("Employee", backref="audits")
+
+
+class SystemEvent(Base):
+    __tablename__ = "system_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    event_type = Column(String(64), nullable=False, index=True)
+
+    actor_bitrix_id = Column(Integer, nullable=True, index=True)
+    actor_name_snapshot = Column(String(255), nullable=False, default="")
+
+    target_type = Column(String(32), nullable=False, index=True)
+    target_id = Column(Integer, nullable=True, index=True)
+    target_name_snapshot = Column(String(255), nullable=True)
+
+    message = Column(Text, nullable=False)
+    payload = Column(JSON, nullable=True)
+    created_at = Column(DateTime, nullable=False, server_default=func.now(), index=True)
+
+
+class SystemEventRow(BaseModel):
+    id: int
+    event_type: str
+    actor_bitrix_id: Optional[int] = None
+    actor_name_snapshot: str
+    target_type: str
+    target_id: Optional[int] = None
+    target_name_snapshot: Optional[str] = None
+    message: str
+    payload: Optional[dict] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SystemEventsPage(BaseModel):
+    events: List[SystemEventRow]
+    total: int
+    page: int
+    size: int
+    total_pages: int
 
 
 # --- 3. Таблица транзакций лайков ---
@@ -144,8 +187,12 @@ class UserLikesHistory(BaseModel):
 class AllLikeTransactionResponse(BaseModel):
     id: int
     date: datetime
+    from_user_bitrix_id: Optional[int] = None
+    to_user_bitrix_id: Optional[int] = None
     from_user_name: Optional[str] = 'Неизвестно'
     to_user_name: Optional[str] = 'Неизвестно'
+    from_user_photo_url: Optional[str] = None
+    to_user_photo_url: Optional[str] = None
     msg: Optional[str] = None
     sticker_id: Optional[int] = None
 
@@ -154,6 +201,35 @@ class AllLikeTransactionResponse(BaseModel):
 
 class AllLikesHistory(BaseModel):
     likes: List[AllLikeTransactionResponse]
+    total_pages: int
+
+
+class ActivityFeedRow(BaseModel):
+    id: int
+    event_type: Literal["thanks", "purchase"]
+    date: datetime
+
+    from_user_bitrix_id: Optional[int] = None
+    to_user_bitrix_id: Optional[int] = None
+    from_user_name: Optional[str] = None
+    to_user_name: Optional[str] = None
+    from_user_photo_url: Optional[str] = None
+    to_user_photo_url: Optional[str] = None
+    msg: Optional[str] = None
+    sticker_id: Optional[int] = None
+
+    buyer_id: Optional[int] = None
+    buyer_name: Optional[str] = None
+    buyer_photo_url: Optional[str] = None
+    item_name: Optional[str] = None
+    item_photo_url: Optional[str] = None
+    amount_spent: Optional[int] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ActivityFeedResponse(BaseModel):
+    events: List[ActivityFeedRow]
     total_pages: int
 
 
@@ -178,6 +254,37 @@ class Game(Base):
     setting_limitToOneUser = Column(Integer, default=1, nullable=False)
 
     likes = relationship("LikeTransaction", back_populates="game")
+    participant_links = relationship(
+        "GameParticipant",
+        back_populates="game",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+    @property
+    def participant_ids(self) -> list[int]:
+        return [int(link.employee_bitrix_id) for link in (self.participant_links or [])]
+
+    @property
+    def participant_count(self) -> int:
+        return len(self.participant_links or [])
+
+
+class GameParticipant(Base):
+    __tablename__ = "game_participants"
+
+    id = Column(Integer, primary_key=True, index=True)
+    game_id = Column(Integer, ForeignKey("games.id"), nullable=False, index=True)
+    employee_bitrix_id = Column(Integer, ForeignKey("employees.bitrix_id"), nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    game = relationship("Game", back_populates="participant_links")
+    employee = relationship("Employee", foreign_keys=[employee_bitrix_id])
+
+    __table_args__ = (
+        UniqueConstraint("game_id", "employee_bitrix_id", name="uq_game_participants_game_employee"),
+        Index("ix_game_participants_game_employee", "game_id", "employee_bitrix_id"),
+    )
 
 
 class GameResponse(BaseModel):
@@ -190,6 +297,8 @@ class GameResponse(BaseModel):
     setting_limitParameter: str | None = None
     setting_limitValue: int | None = None
     setting_limitToOneUser: int | None = None
+    participant_ids: List[int] = Field(default_factory=list)
+    participant_count: int = 0
 
     class Config:
         from_attributes = True
@@ -207,6 +316,7 @@ class GameUpdate(BaseModel):
     setting_limitParameter: Optional[LimitParameter] = None
     setting_limitValue: Optional[int] = None
     setting_limitToOneUser: Optional[int] = None
+    participant_ids: Optional[List[int]] = None
 
     class Config:
         from_attributes = True
@@ -220,6 +330,7 @@ class GameCreate(BaseModel):
     setting_limitParameter: LimitParameter = Field(..., description="Период для ограничения спасибок", examples=["day", "week", "month", "game"])
     setting_limitValue: int = Field(default=1, ge=1, le=1000, description="Максимальное количество спасибок за период")
     setting_limitToOneUser: int = Field(default=2, ge=1, le=100, description="Максимальное количество спасибок одному пользователю")
+    participant_ids: List[int] = Field(default_factory=list, description="Список участников игры (bitrix_id)")
 
 
 class GameRatingRow(BaseModel):
@@ -236,6 +347,26 @@ class GameRatingRow(BaseModel):
 class OverallRatingResponse(BaseModel):
     rating: List[GameRatingRow]
     total_pages: int
+
+
+class MonthlyTopRow(BaseModel):
+    bitrix_id: int
+    photo_url: Optional[str] = None
+    fio: str
+    received: int
+    place: int
+
+    class Config:
+        from_attributes = True
+
+
+class MonthlyTopResponse(BaseModel):
+    has_active_game: bool
+    game_id: int | None
+    game_name: str
+    period_start: datetime | None = None
+    period_end: datetime | None = None
+    leaders: List[MonthlyTopRow]
 
 
 # --- 5. Таблица Товар ---

@@ -26,6 +26,20 @@ async def send_like(payload: LikeRequest, db: Session = Depends(get_db)):
     except HTTPException:
         raise
 
-    await send_bitrix_notification(from_user_id=from_user_id, to_user_id=to_user_id, db=db)
+    try:
+        notify_result = await send_bitrix_notification(from_user_id=from_user_id, to_user_id=to_user_id, db=db)
+        if isinstance(notify_result, dict) and notify_result.get("status", 200) >= 400:
+            logger.warning(
+                "Like sent, but Bitrix notification failed (from_user_id=%s, to_user_id=%s): %s",
+                from_user_id,
+                to_user_id,
+                notify_result,
+            )
+    except Exception:
+        logger.exception(
+            "Like sent, but unexpected error while sending Bitrix notification (from_user_id=%s, to_user_id=%s)",
+            from_user_id,
+            to_user_id,
+        )
 
     return {"message": "Спасибка отправлена!"}

@@ -4,16 +4,16 @@ from pathlib import Path
 from dotenv import load_dotenv
 from sqlalchemy.engine import URL
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+PROJECT_DIR = Path(__file__).resolve().parents[2]
 
-env_path = BASE_DIR / ".env"
+env_path = PROJECT_DIR / ".env"
 load_dotenv(env_path)
 
-local_env_path = BASE_DIR / ".env.local"
+local_env_path = PROJECT_DIR / ".env.local"
 if local_env_path.exists():
     load_dotenv(local_env_path, override=True)
 
-STATIC_DIR = BASE_DIR / "static"
+STATIC_DIR = PROJECT_DIR / "static"
 STICKERS_UPLOAD_DIR_DEFAULT = STATIC_DIR / "stickers"
 STICKERS_UPLOAD_DIR_DEFAULT.mkdir(parents=True, exist_ok=True)
 

@@ -10,6 +10,13 @@ from backend.models import Item, ItemCreate, ItemUpdate, ItemResponse, BuyTransa
     BuyTransactionCreate, BuyTransaction
 from backend.scripts.database import get_db
 from backend.services.item_service import execute_buy_transaction, create_item_service, save_file
+from backend.services.bitrix_notify import send_bitrix_purchase_notification
+from backend.services.event_log import (
+    EVENT_ITEM_DELETED,
+    EVENT_ITEM_UPDATED,
+    TARGET_ITEM,
+    log_event,
+)
 
 router = APIRouter()
 
@@ -17,6 +24,18 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 STATIC_DIR = BASE_DIR / "static"
 ITEMS_UPLOAD_DIR = STATIC_DIR / "uploads" / "items"
 ITEMS_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def item_snapshot(item: Item) -> dict:
+    return {
+        "id": int(item.id),
+        "name": item.name,
+        "description": item.description,
+        "price": int(item.price),
+        "stock": int(item.stock),
+        "is_active": bool(item.is_active),
+        "photo_url": item.photo_url,
+    }
 
 
 @router.get("/api/show-items", response_model=list[ItemResponse])
@@ -41,6 +60,11 @@ async def buy_item(item: BuyTransactionCreate, db: Session = Depends(get_db)):
             item.amount_spent
         )
 
+        purchased_item = db.query(Item).filter(Item.id == new_transaction.item_id).first()
+        item_name = purchased_item.name if purchased_item else f"товар #{new_transaction.item_id}"
+
+        await send_bitrix_purchase_notification(item.buyer_id, item_name, db)
+
         return new_transaction
 
     except HTTPException as e:
@@ -51,11 +75,11 @@ async def buy_item(item: BuyTransactionCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/api/items", response_model=ItemResponse, status_code=status.HTTP_201_CREATED)
-async def create_item(item: ItemCreate, db: Session = Depends(get_db)):
+async def create_item(item: ItemCreate, admin_id: int | None = None, db: Session = Depends(get_db)):
     item_data = item.model_dump()
 
     try:
-        new_item = await asyncio.to_thread(create_item_service, db, item_data)
+        new_item = await asyncio.to_thread(create_item_service, db, item_data, admin_id)
 
         return new_item
 
@@ -73,6 +97,7 @@ def list_items(db: Session = Depends(get_db)):
 def update_item(
     item_id: int,
     item_update: ItemUpdate,
+    admin_id: int | None = None,
     db: Session = Depends(get_db),
 ):
     db_item = db.query(Item).filter(Item.id == item_id).first()
@@ -85,8 +110,27 @@ def update_item(
         return db_item
 
     try:
+        before = item_snapshot(db_item)
         for field, value in data.items():
             setattr(db_item, field, value)
+
+        after = item_snapshot(db_item)
+        changed_fields = [field for field in data.keys() if before.get(field) != after.get(field)]
+        if changed_fields:
+            log_event(
+                db,
+                event_type=EVENT_ITEM_UPDATED,
+                actor_bitrix_id=admin_id,
+                target_type=TARGET_ITEM,
+                target_id=db_item.id,
+                target_name_snapshot=db_item.name,
+                message=f"Изменён товар «{db_item.name}»",
+                payload={
+                    "before": before,
+                    "after": after,
+                    "changed_fields": changed_fields,
+                },
+            )
 
         db.commit()
         db.refresh(db_item)
@@ -103,6 +147,7 @@ def update_item(
 @router.delete("/api/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_item(
     item_id: int,
+    admin_id: int | None = None,
     db: Session = Depends(get_db),
 ):
     db_item = db.query(Item).filter(Item.id == item_id).first()
@@ -124,6 +169,17 @@ def delete_item(
         )
 
     try:
+        snapshot = item_snapshot(db_item)
+        log_event(
+            db,
+            event_type=EVENT_ITEM_DELETED,
+            actor_bitrix_id=admin_id,
+            target_type=TARGET_ITEM,
+            target_id=db_item.id,
+            target_name_snapshot=db_item.name,
+            message=f"Удалён товар «{db_item.name}»",
+            payload={"snapshot": snapshot},
+        )
         db.delete(db_item)
         db.commit()
         return Response(status_code=status.HTTP_204_NO_CONTENT)

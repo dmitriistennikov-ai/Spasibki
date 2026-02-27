@@ -24,5 +24,6 @@ async def get_user(user_id: int, db: Session = Depends(get_db)):
         "likes": user.likes,
         "coins": user.coins,
         "is_admin": user.is_admin,
+        "is_superadmin": getattr(user, "is_superadmin", False),
         "photo_url": user.photo_url,
     }

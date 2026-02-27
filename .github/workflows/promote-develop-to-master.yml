@@ -27,7 +27,6 @@ jobs:
       - name: Merge develop into master
         run: |
           git checkout master
-          # обычный merge без --ff-only, чтобы не споткнуться об историю
           git merge origin/develop
 
       - name: Push master
@@ -71,4 +70,3 @@ jobs:
             echo "❌ Приложение так и не ответило. Покажем логи app:"
             docker compose logs app --tail=100 || true
             exit 1
-

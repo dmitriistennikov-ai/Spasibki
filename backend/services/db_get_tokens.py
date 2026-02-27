@@ -1,5 +1,4 @@
 from sqlalchemy.orm import Session
-
 from backend.models import BitrixAuth
 
 

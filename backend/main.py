@@ -6,6 +6,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.api.games import router as games_router
+from backend.api.events import router as events_router
 from backend.api.install import router as install_router
 from backend.api.items import router as items_router
 from backend.api.like import router as like_router
@@ -28,6 +29,7 @@ app.include_router(users_router)
 app.include_router(like_router)
 app.include_router(user_router)
 app.include_router(games_router)
+app.include_router(events_router)
 app.include_router(likes_info_router)
 app.include_router(likes_history_router)
 app.include_router(items_router)
@@ -60,13 +62,17 @@ async def root(
     member_id = data.get("member_id")
     status = data.get("status")
 
-    current_user_data = await get_current_user(auth_id, refresh_id, domain)
-    user_id = current_user_data["ID"]
-
-    current_user_photo = await get_user_photo(auth_id, refresh_id, domain, user_id)
-    current_user_data["PERSONAL_PHOTO"] = current_user_photo
-
     try:
+        current_user_data = await get_current_user(auth_id, refresh_id, domain)
+        user_id = current_user_data["ID"]
+
+        try:
+            current_user_photo = await get_user_photo(auth_id, refresh_id, domain, user_id)
+        except Exception:
+            current_user_photo = None
+            
+        current_user_data["PERSONAL_PHOTO"] = current_user_photo
+
         save_or_update_employees([current_user_data], db)
         save_or_update_token(
             domain, user_id, member_id, auth_id, refresh_id, expires_in, status, db
