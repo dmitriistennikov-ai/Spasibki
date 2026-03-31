@@ -31,7 +31,9 @@ function toast(msg) {
     setTimeout(() => bar.classList.remove('is-visible'), 3500);
 }
 
+const THANKS_GAME_PLACEHOLDER = 'Выберите игру';
 const THANKS_RECIPIENT_PLACEHOLDER = 'Кому отправить спасибку';
+const THANKS_RECIPIENT_LOCKED_PLACEHOLDER = 'Сначала выберите игру';
 let currentUserProfile = null;
 
 function setStickerToggleState(toggleBtn, selected = false, label = 'Выберите стикер') {
@@ -166,20 +168,63 @@ async function loadCurrentUser() {
 
 
 async function fetchUsers() {
-    const r = await fetch('/api/users?only_gamers=true&active_game_only=true');
+    const r = await fetch('/api/users?only_gamers=true');
     if(!r.ok) throw new Error(`Не удалось загрузить сотрудников (${r.status})`);
     return r.json();
 }
 
 
-async function fetchLikesInfo(bitrixId) {
-    const res = await fetch(`/api/likes-info/${encodeURIComponent(bitrixId)}`);
+async function fetchAvailableThanksGames(userBitrixId) {
+    const r = await fetch('/api/games/all');
+    if (!r.ok) throw new Error(`Не удалось загрузить список игр (${r.status})`);
+
+    const allGames = await r.json();
+    const userId = Number(userBitrixId || '0');
+    const nowTs = Date.now();
+
+    return (Array.isArray(allGames) ? allGames : [])
+        .filter((game) => {
+            if (!game || !game.game_is_active) return false;
+            if (!Array.isArray(game.participant_ids)) return false;
+            const participants = game.participant_ids.map((id) => String(id));
+            if (!participants.includes(String(userId))) return false;
+            if (!game.game_end) return true;
+            const endTs = new Date(game.game_end).getTime();
+            return Number.isFinite(endTs) ? endTs >= nowTs : true;
+        })
+        .sort((a, b) => {
+            const aTs = new Date(a.game_end || a.game_start || 0).getTime();
+            const bTs = new Date(b.game_end || b.game_start || 0).getTime();
+            return aTs - bTs;
+        });
+}
+
+
+async function fetchLikesInfo(bitrixId, gameId = null) {
+    const query = gameId ? `?game_id=${encodeURIComponent(gameId)}` : '';
+    const res = await fetch(`/api/likes-info/${encodeURIComponent(bitrixId)}${query}`);
     if (!res.ok) {
         let msg = `Не удалось получить информацию о Спасибках (${res.status})`;
+        let detail = '';
         try {
             const data = await res.json();
-            if (data && data.detail) msg = data.detail;
+            if (data && data.detail) {
+                detail = String(data.detail);
+                msg = detail;
+            }
         } catch (_) {}
+
+        if (res.status === 403 && detail === 'Сотрудник не участвует в выбранной игре') {
+            return {
+                received_likes: 0,
+                remaining_likes: 0,
+                sent_likes: 0,
+                game_name: '',
+                game_id: gameId ? Number(gameId) : null,
+                has_active_game: true,
+                is_participant: false,
+            };
+        }
         throw new Error(msg);
     }
     return res.json();
@@ -188,76 +233,241 @@ async function fetchLikesInfo(bitrixId) {
 
 async function openThanksModal() {
     const modal = document.getElementById('thanks-modal');
+    const recipientContainer = modal?.querySelector('.home-composer__recipient--employee');
+    const gameSelect = modal?.querySelector('#thanks-game');
+    const gameDropdown = modal?.querySelector('#thanks-game-dropdown');
+    const gameTrigger = gameDropdown?.querySelector('.thanks-to-dropdown__trigger');
+    const gameList = gameDropdown?.querySelector('.thanks-to-dropdown__list');
+
     const select = modal?.querySelector('#thanks-to');
     const dropdown = modal?.querySelector('#thanks-to-dropdown');
     const trigger = dropdown?.querySelector('.thanks-to-dropdown__trigger');
     const list = dropdown?.querySelector('.thanks-to-dropdown__list');
 
-    if (!modal || !select || !dropdown || !trigger || !list) return;
+    if (!modal || !recipientContainer || !gameSelect || !gameDropdown || !gameTrigger || !gameList || !select || !dropdown || !trigger || !list) return;
 
-    let searchInput = dropdown.querySelector('.thanks-to-dropdown__search');
-    if (!searchInput) {
-        searchInput = document.createElement('input');
-        searchInput.type = 'text';
-        searchInput.className = 'thanks-to-dropdown__search';
-        searchInput.placeholder = 'Начните вводить имя...';
-        searchInput.autocomplete = 'off';
-        searchInput.hidden = true; 
-        dropdown.insertBefore(searchInput, list);
-    } else {
-        searchInput.value = '';
-        searchInput.hidden = true;
-    }
+    const ensureDropdownSearch = (rootDropdown, rootList, placeholder) => {
+        let input = rootDropdown.querySelector('.thanks-to-dropdown__search');
+        if (!input) {
+            input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'thanks-to-dropdown__search';
+            input.autocomplete = 'off';
+            rootDropdown.insertBefore(input, rootList);
+        }
+        input.placeholder = placeholder;
+        input.value = '';
+        input.hidden = true;
+        return input;
+    };
+
+    const gameSearchInput = ensureDropdownSearch(gameDropdown, gameList, 'Поиск игры...');
+    const searchInput = ensureDropdownSearch(dropdown, list, 'Начните вводить имя...');
+
+    gameSelect.innerHTML = '<option value="" disabled selected>Загрузка…</option>';
+    gameSelect.value = '';
+    gameTrigger.textContent = 'Загрузка…';
+    gameTrigger.setAttribute('title', 'Загрузка…');
+    gameTrigger.setAttribute('aria-expanded', 'false');
+    gameTrigger.disabled = true;
+    gameList.hidden = true;
+    gameList.innerHTML = '';
 
     select.innerHTML = '<option value="" disabled selected>Загрузка…</option>';
-    trigger.textContent = 'Загрузка…';
-    trigger.setAttribute('title', 'Загрузка…');
+    select.value = '';
+    trigger.textContent = THANKS_RECIPIENT_LOCKED_PLACEHOLDER;
+    trigger.setAttribute('title', THANKS_RECIPIENT_LOCKED_PLACEHOLDER);
     trigger.setAttribute('aria-expanded', 'false');
+    trigger.disabled = true;
     list.hidden = true;
     list.innerHTML = '';
 
     const userId = getCurrentUserId();
 
-    try {
-        const users = await fetchUsers();
-        dropdown._users = users;
+    const buildUsersListHtml = (usersToRender) => usersToRender.map(u => {
+        const fullName = [u.name, u.lastname].filter(Boolean).join(' ');
+        const isDisabled = userId && String(u.bitrix_id) === String(userId);
+        const disabledClass = isDisabled ? ' thanks-to-dropdown__item--disabled' : '';
+        const photoSrc = u.photo_url || '';
 
-        const buildListHtml = (usersToRender) => usersToRender.map(u => {
-            const fullName = [u.name, u.lastname].filter(Boolean).join(' ');
-            const isDisabled = userId && String(u.bitrix_id) === String(userId);
-            const disabledClass = isDisabled ? ' thanks-to-dropdown__item--disabled' : '';
-            const photoSrc = u.photo_url || '';
+        return `
+            <li
+                class="thanks-to-dropdown__item${disabledClass}"
+                role="option"
+                data-id="${u.bitrix_id}"
+                aria-disabled="${isDisabled ? 'true' : 'false'}"
+            >
+                <span class="thanks-to-dropdown__avatar">
+                    ${photoSrc ? `<img src="${photoSrc}" alt="">` : ''}
+                </span>
+                <span class="thanks-to-dropdown__name">${fullName}</span>
+            </li>
+        `;
+    }).join('');
 
-            return `
-                <li
-                    class="thanks-to-dropdown__item${disabledClass}"
-                    role="option"
-                    data-id="${u.bitrix_id}"
-                    aria-disabled="${isDisabled ? 'true' : 'false'}"
-                >
-                    <span class="thanks-to-dropdown__avatar">
-                        ${photoSrc ? `<img src="${photoSrc}" alt="">` : ''}
-                    </span>
-                    <span class="thanks-to-dropdown__name">${fullName}</span>
-                </li>
-            `;
-        }).join('');
-        const selectOptions = ['<option value="" disabled selected>Выберите сотрудника…</option>']
+    const lockRecipientSelector = (label = THANKS_RECIPIENT_LOCKED_PLACEHOLDER) => {
+        select.value = '';
+        select.innerHTML = '<option value="" disabled selected>Сначала выберите игру…</option>';
+        trigger.textContent = label;
+        trigger.setAttribute('title', label);
+        trigger.disabled = true;
+        trigger.setAttribute('aria-expanded', 'false');
+        list.innerHTML = '';
+        list.hidden = true;
+        searchInput.value = '';
+        searchInput.hidden = true;
+        dropdown._users = [];
+    };
+
+    const renderRecipientsForGame = (gameId) => {
+        const allUsers = Array.isArray(dropdown._allUsers) ? dropdown._allUsers : [];
+        const allGames = Array.isArray(gameDropdown._games) ? gameDropdown._games : [];
+        const game = allGames.find((item) => String(item.id) === String(gameId));
+        if (!game) {
+            lockRecipientSelector();
+            return;
+        }
+
+        const participants = new Set((Array.isArray(game.participant_ids) ? game.participant_ids : []).map((id) => String(id)));
+        const usersInGame = allUsers.filter((user) => participants.has(String(user.bitrix_id)));
+        const usersAvailableForSend = usersInGame.filter((user) => String(user.bitrix_id) !== String(userId));
+
+        dropdown._users = usersInGame;
+        select.value = '';
+        select.innerHTML = ['<option value="" disabled selected>Выберите сотрудника…</option>']
             .concat(
-                users.map(u => {
+                usersInGame.map((u) => {
                     const label = [u.name, u.lastname].filter(Boolean).join(' ');
-                    const dis = userId && String(u.bitrix_id) === String(userId) ? ' disabled' : '';
-                    return `<option value="${u.bitrix_id}"${dis}>${label}</option>`;
-                })
-            );
-        select.innerHTML = selectOptions.join('');
-        list.innerHTML = buildListHtml(users);
+                    const isDisabled = userId && String(u.bitrix_id) === String(userId);
+                    return `<option value="${u.bitrix_id}"${isDisabled ? ' disabled' : ''}>${label}</option>`;
+                }),
+            )
+            .join('');
+        list.innerHTML = buildUsersListHtml(usersInGame);
+        searchInput.value = '';
+        searchInput.hidden = true;
+        list.hidden = true;
+        trigger.setAttribute('aria-expanded', 'false');
+
+        if (usersAvailableForSend.length === 0) {
+            trigger.textContent = 'Нет доступных получателей';
+            trigger.setAttribute('title', 'Нет доступных получателей');
+            trigger.disabled = true;
+            return;
+        }
 
         trigger.textContent = THANKS_RECIPIENT_PLACEHOLDER;
         trigger.setAttribute('title', THANKS_RECIPIENT_PLACEHOLDER);
+        trigger.disabled = false;
+    };
+
+    try {
+        const [users, availableGames] = await Promise.all([
+            fetchUsers(),
+            fetchAvailableThanksGames(userId),
+        ]);
+        dropdown._allUsers = users;
+        gameDropdown._games = availableGames;
+        gameSelect.dataset.hasGames = availableGames.length > 0 ? '1' : '0';
+
+        if (!gameSelect.dataset.gameSelectInit) {
+            gameSelect.addEventListener('change', () => {
+                renderRecipientsForGame(gameSelect.value);
+                refreshHomeComposerInfo().catch(() => {});
+            });
+            gameSelect.dataset.gameSelectInit = '1';
+        }
+
+        if (!gameTrigger.dataset.dropdownInit) {
+            gameTrigger.addEventListener('click', () => {
+                if (gameTrigger.disabled) return;
+                const isOpen = !gameList.hidden;
+                gameList.hidden = isOpen;
+                gameSearchInput.hidden = isOpen;
+                gameTrigger.setAttribute('aria-expanded', String(!isOpen));
+
+                if (!isOpen) {
+                    gameSearchInput.focus();
+                }
+            });
+
+            gameSearchInput.addEventListener('input', () => {
+                const query = gameSearchInput.value.trim().toLowerCase();
+                const allGames = gameDropdown._games || [];
+                const filtered = !query
+                    ? allGames
+                    : allGames.filter((game) => String(game.name || '').toLowerCase().includes(query));
+
+                gameList.innerHTML = filtered.map((game) => (
+                    `<li class="thanks-to-dropdown__item" role="option" data-id="${game.id}">
+                        <span class="thanks-to-dropdown__name">${esc(game.name || 'Без названия')}</span>
+                    </li>`
+                )).join('');
+            });
+
+            gameList.addEventListener('click', (event) => {
+                const item = event.target.closest('.thanks-to-dropdown__item');
+                if (!item) return;
+
+                const id = String(item.dataset.id || '');
+                if (!id) return;
+
+                const selectedGame = (gameDropdown._games || []).find((game) => String(game.id) === id);
+                const label = selectedGame?.name || 'Без названия';
+
+                gameSelect.value = id;
+                gameSelect.dispatchEvent(new Event('change', { bubbles: true }));
+
+                gameTrigger.textContent = label;
+                gameTrigger.setAttribute('title', label);
+                gameList.hidden = true;
+                gameSearchInput.hidden = true;
+                gameTrigger.setAttribute('aria-expanded', 'false');
+            });
+
+            document.addEventListener('click', (event) => {
+                if (!gameDropdown.contains(event.target)) {
+                    gameList.hidden = true;
+                    gameSearchInput.hidden = true;
+                    gameTrigger.setAttribute('aria-expanded', 'false');
+                }
+            });
+
+            gameTrigger.dataset.dropdownInit = '1';
+        }
+
+        if (availableGames.length === 0) {
+            gameSelect.innerHTML = '<option value="" disabled selected>Нет доступных игр</option>';
+            gameSelect.value = '';
+            gameTrigger.textContent = 'Нет доступных игр';
+            gameTrigger.setAttribute('title', 'Нет доступных игр');
+            gameTrigger.disabled = true;
+            lockRecipientSelector('Нет доступных игр');
+            recipientContainer.setAttribute('hidden', '');
+            await refreshHomeComposerInfo();
+            return;
+        }
+
+        recipientContainer.removeAttribute('hidden');
+        gameSelect.innerHTML = ['<option value="" disabled selected>Выберите игру…</option>']
+            .concat(
+                availableGames.map((game) => `<option value="${game.id}">${esc(game.name || 'Без названия')}</option>`),
+            )
+            .join('');
+        gameSelect.value = '';
+        gameTrigger.textContent = THANKS_GAME_PLACEHOLDER;
+        gameTrigger.setAttribute('title', THANKS_GAME_PLACEHOLDER);
+        gameTrigger.disabled = false;
+        gameList.innerHTML = availableGames.map((game) => (
+            `<li class="thanks-to-dropdown__item" role="option" data-id="${game.id}">
+                <span class="thanks-to-dropdown__name">${esc(game.name || 'Без названия')}</span>
+            </li>`
+        )).join('');
+        lockRecipientSelector();
 
         if (!trigger.dataset.dropdownInit) {
             trigger.addEventListener('click', () => {
+                if (trigger.disabled) return;
                 const isOpen = !list.hidden;
                 list.hidden = isOpen;
                 searchInput.hidden = isOpen;
@@ -282,7 +492,7 @@ async function openThanksModal() {
                         return fullName.includes(query);
                     });
 
-                list.innerHTML = buildListHtml(filtered);
+                list.innerHTML = buildUsersListHtml(filtered);
             });
 
             list.addEventListener('click', (event) => {
@@ -317,13 +527,22 @@ async function openThanksModal() {
             trigger.dataset.dropdownInit = '1';
         }
 
+        await refreshHomeComposerInfo();
     } catch (e) {
         console.error(e);
-        toast(e.message || 'Ошибка загрузки сотрудников');
+        toast(e.message || 'Ошибка загрузки данных для отправки');
         trigger.textContent = 'Ошибка загрузки';
         trigger.setAttribute('title', 'Ошибка загрузки');
+        trigger.disabled = true;
+        gameTrigger.textContent = 'Ошибка загрузки';
+        gameTrigger.setAttribute('title', 'Ошибка загрузки');
+        gameTrigger.disabled = true;
         list.hidden = true;
         searchInput.hidden = true;
+        gameList.hidden = true;
+        gameSearchInput.hidden = true;
+        gameSelect.dataset.hasGames = '0';
+        await refreshHomeComposerInfo();
     }
 }
 
@@ -336,13 +555,25 @@ function closeThanksModal() {
     const msgInput = modal.querySelector('#thanks-message');
     if (msgInput) msgInput.value = '';
 
+    const gameInput = modal.querySelector('#thanks-game');
+    if (gameInput) gameInput.value = '';
+
+    const gameDropdownTrigger = modal.querySelector('#thanks-game-dropdown .thanks-to-dropdown__trigger');
+    if (gameDropdownTrigger) {
+        gameDropdownTrigger.textContent = THANKS_GAME_PLACEHOLDER;
+        gameDropdownTrigger.setAttribute('title', THANKS_GAME_PLACEHOLDER);
+        gameDropdownTrigger.setAttribute('aria-expanded', 'false');
+        gameDropdownTrigger.disabled = gameInput?.dataset?.hasGames === '0';
+    }
+
     const toInput = modal.querySelector('#thanks-to');
     if (toInput) toInput.value = '';
 
-    const dropdownTrigger = modal.querySelector('.thanks-to-dropdown__trigger');
+    const dropdownTrigger = modal.querySelector('#thanks-to-dropdown .thanks-to-dropdown__trigger');
     if (dropdownTrigger) {
-        dropdownTrigger.textContent = THANKS_RECIPIENT_PLACEHOLDER;
-        dropdownTrigger.setAttribute('title', THANKS_RECIPIENT_PLACEHOLDER);
+        dropdownTrigger.textContent = THANKS_RECIPIENT_LOCKED_PLACEHOLDER;
+        dropdownTrigger.setAttribute('title', THANKS_RECIPIENT_LOCKED_PLACEHOLDER);
+        dropdownTrigger.disabled = true;
     }
 
     const selectedInput = modal.querySelector('#selected-sticker-id');
@@ -356,10 +587,13 @@ function closeThanksModal() {
     const stickerToggle = modal.querySelector('#sticker-selector-toggle');
     setStickerToggleState(stickerToggle, false, 'Выберите стикер');
 
-    const dropdownList = modal.querySelector('.thanks-to-dropdown__list');
-    const dropdownSearch = modal.querySelector('.thanks-to-dropdown__search');
-    if (dropdownList) dropdownList.hidden = true;
-    if (dropdownSearch) dropdownSearch.hidden = true;
+    modal.querySelectorAll('.thanks-to-dropdown__list').forEach((dropdownList) => {
+        dropdownList.hidden = true;
+    });
+    modal.querySelectorAll('.thanks-to-dropdown__search').forEach((dropdownSearch) => {
+        dropdownSearch.hidden = true;
+        dropdownSearch.value = '';
+    });
 
     const stickerGrid = modal.querySelector('#sticker-selector');
     if (stickerGrid) stickerGrid.setAttribute('hidden', '');
@@ -372,6 +606,12 @@ async function submitThanks(e) {
     const modal = document.getElementById('thanks-modal');
     if (!modal) return;
 
+    const gameId = Number(modal.querySelector('#thanks-game')?.value || '0');
+    if (!gameId) {
+        toast('Сначала выберите игру');
+        return;
+    }
+
     const toId = Number(modal.querySelector('#thanks-to')?.value || '0');
     const fromId = Number(getCurrentUserId() || '0');
     const stickerId = Number(modal.querySelector('#selected-sticker-id')?.value || '0');
@@ -380,7 +620,7 @@ async function submitThanks(e) {
         return;
     }
     const msg = (modal.querySelector('#thanks-message')?.value || '').trim();
-    const payload = { from_id: fromId, to_id: toId };
+    const payload = { from_id: fromId, to_id: toId, game_id: gameId };
     if (msg) payload.message = msg;
     if (stickerId > 0) payload.sticker_id = stickerId;
     try {
@@ -792,6 +1032,7 @@ function openThanksComposerOnHome() {
 async function refreshHomeComposerInfo() {
     const hint = document.getElementById('home-composer-limit');
     const submitBtn = document.querySelector('#thanks-form button[type="submit"]');
+    const gameSelect = document.getElementById('thanks-game');
     if (!hint) return;
 
     const userId = getCurrentUserId();
@@ -802,8 +1043,29 @@ async function refreshHomeComposerInfo() {
         return;
     }
 
+    const selectedGameId = Number(gameSelect?.value || '0');
+    if (!selectedGameId) {
+        const hasGamesFlag = gameSelect?.dataset?.hasGames;
+        if (hasGamesFlag === '1') {
+            hint.textContent = 'Сначала выберите игру';
+        } else if (hasGamesFlag === '0') {
+            hint.textContent = 'Вы не участвуете ни в одной активной игре';
+        } else {
+            hint.textContent = 'Загрузка списка игр…';
+        }
+        hint.dataset.hasValue = '0';
+        if (submitBtn) submitBtn.disabled = true;
+        return;
+    }
+
     try {
-        const likesInfo = await fetchLikesInfo(userId);
+        const likesInfo = await fetchLikesInfo(userId, selectedGameId);
+        if (likesInfo?.is_participant === false) {
+            hint.textContent = 'Вы не участвуете в выбранной игре';
+            hint.dataset.hasValue = '0';
+            if (submitBtn) submitBtn.disabled = true;
+            return;
+        }
         if (!likesInfo.has_active_game) {
             hint.textContent = 'Сейчас нет активной игры';
             hint.dataset.hasValue = '0';
@@ -1186,10 +1448,17 @@ async function loadHomeDashboardData() {
 
 
 let gamesLoaded = false;
-let currentActiveGame = null;
+let currentActiveGames = [];
 let finishedGames = [];
 let currentPage = 1;
 const itemsPerPage = 5;
+let activeGamesRenderNonce = 0;
+
+
+function isUserInGameParticipants(game, userId) {
+    if (!game || !Array.isArray(game.participant_ids) || !userId) return false;
+    return game.participant_ids.map((id) => String(id)).includes(String(userId));
+}
 
 
 function updatePagination(totalPages) {
@@ -1259,21 +1528,23 @@ function renderFinishedGamesPages(totalPages) {
 
 async function loadGames() {
     try {
-        const [activeRes, allRes] = await Promise.all([
-            fetch('/api/games?is_active=true&page=1&limit=1'),
-            fetch('/api/games/all')
-        ]);
-        if (!activeRes.ok) throw new Error(`Не удалось загрузить активную игру (${activeRes.status})`);
+        const allRes = await fetch('/api/games/all');
         if (!allRes.ok) throw new Error(`Не удалось загрузить список игр (${allRes.status})`);
 
-        const activePayload = await activeRes.json();
         const allGames = await allRes.json();
+        const games = Array.isArray(allGames) ? allGames : [];
 
-        const activeRows = Array.isArray(activePayload?.games) ? activePayload.games : [];
-        currentActiveGame = activeRows[0] || null;
+        const activeRows = games
+            .filter((g) => g && g.game_is_active)
+            .sort((a, b) => {
+                const aTs = new Date(a.game_end || a.game_start || 0).getTime();
+                const bTs = new Date(b.game_end || b.game_start || 0).getTime();
+                return aTs - bTs;
+            });
+        currentActiveGames = activeRows;
 
         const now = Date.now();
-        const completedGames = (Array.isArray(allGames) ? allGames : [])
+        const completedGames = games
             .filter((g) => {
                 if (!g || g.game_is_active) return false;
                 if (!g.game_end) return false;
@@ -1296,7 +1567,8 @@ async function loadGames() {
     } catch (e) {
         console.error(e);
         toast(e.message || 'Ошибка загрузки игр');
-        renderActiveGame([]);
+        currentActiveGames = [];
+        await renderActiveGame([]);
         renderFinishedGames([]);
         updatePagination(1);
     }
@@ -1360,139 +1632,132 @@ function closeGameModal() {
 
 
 async function refreshGameLikesInfo() {
-    const container = document.getElementById('game-stats-container');
-    if (!container) return;
-
-    container.hidden = true;
-
-    const userId = getCurrentUserId();
-    if (!userId) return;
-
-    try {
-        const likesInfo = await fetchLikesInfo(userId);
-
-        if (likesInfo?.has_active_game && likesInfo.received_likes !== null && likesInfo.received_likes !== undefined) {
-            document.getElementById('game-thanks-received').textContent =
-                `Получено Спасибок в текущей игре: ${likesInfo.received_likes ?? 0}`;
-            document.getElementById('game-thanks-limit').textContent =
-                `Остаток Спасибок в текущей игре: ${likesInfo.remaining_likes ?? 0}`;
-            const receivedValueEl = document.getElementById('game-thanks-received-value');
-            const limitValueEl = document.getElementById('game-thanks-limit-value');
-            const sentValueEl = document.getElementById('game-thanks-sent-value');
-            if (receivedValueEl) receivedValueEl.textContent = String(likesInfo.received_likes ?? 0);
-            if (limitValueEl) limitValueEl.textContent = String(likesInfo.remaining_likes ?? 0);
-            if (sentValueEl) sentValueEl.textContent = String(likesInfo.sent_likes ?? 0);
-
-            container.hidden = false;
-        }
-    } catch (e) {
-        console.error(e);
-    }
+    if (!Array.isArray(currentActiveGames) || !currentActiveGames.length) return;
+    await renderActiveGame(currentActiveGames);
 }
 
 
 async function renderActiveGame(rows) {
-    const link       = document.getElementById('active-game-link');
-    const empty      = document.getElementById('active-game-empty');
-    const block      = document.getElementById('active-game-block');
-    const descEl     = document.getElementById('active-game-description');
-    const datesEl    = document.getElementById('active-game-dates');
-    const rulesEl    = document.getElementById('active-game-rules');
-    const receivedValueEl = document.getElementById('game-thanks-received-value');
-    const limitValueEl = document.getElementById('game-thanks-limit-value');
-    const sentValueEl = document.getElementById('game-thanks-sent-value');
+    const listEl = document.getElementById('active-games-list');
+    const empty = document.getElementById('active-game-empty');
+    const block = document.getElementById('active-game-block');
 
-    const statsContainer = document.getElementById('game-stats-container');
-    const receivedEl = document.getElementById('game-thanks-received');
-    const limitEl    = document.getElementById('game-thanks-limit');
-
-    if (!link || !empty || !receivedEl || !limitEl || !statsContainer) return;
+    if (!listEl || !empty) return;
 
     if (!rows || !rows.length) {
-        currentActiveGame = null;
+        currentActiveGames = [];
+        activeGamesRenderNonce += 1;
         if (block) block.classList.add('games-active--empty');
-        link.hidden = true;
-        link.textContent = '';
+        listEl.hidden = true;
+        listEl.innerHTML = '';
         empty.hidden = false;
-        statsContainer.hidden = true;
-        if (descEl) {
-            descEl.hidden = true;
-            descEl.textContent = '';
-        }
-        if (datesEl) {
-            datesEl.hidden = true;
-            datesEl.textContent = '';
-        }
-        if (rulesEl) {
-            rulesEl.hidden = true;
-            rulesEl.textContent = '';
-        }
-        if (receivedValueEl) receivedValueEl.textContent = '0';
-        if (limitValueEl) limitValueEl.textContent = '0';
-        if (sentValueEl) sentValueEl.textContent = '0';
-
-        receivedEl.textContent = 'Получено Спасибок в текущей игре: —';
-        limitEl.textContent    = 'Остаток Спасибок в текущей игре: —';
         return;
     }
 
-    const g = rows[0];
-    currentActiveGame = g;
+    currentActiveGames = rows.slice();
+    const userId = getCurrentUserId();
+    const renderNonce = ++activeGamesRenderNonce;
     if (block) block.classList.remove('games-active--empty');
 
-    link.textContent = g.name || 'Без названия';
-    link.hidden = false;
+    listEl.hidden = false;
+    listEl.innerHTML = rows.map((game) => `
+        <article class="games-active__item" data-active-game-id="${game.id}">
+            <div class="games-active__item-main">
+                <div class="games-active__item-copy">
+                    <a href="#" class="games-active__item-link" data-active-game-id="${game.id}">
+                        ${esc(game.name || 'Без названия')}
+                    </a>
+                    <p class="games-active__item-dates">${fmtDate(game.game_start)} — ${fmtDate(game.game_end)}</p>
+                </div>
+                <div class="games-active__item-stats" data-active-game-stats="${game.id}">
+                    <div class="games-active__stat">
+                        <span class="games-active__stat-label">Получено</span>
+                        <span class="games-active__stat-value"><span data-stat="received">…</span></span>
+                    </div>
+                    <div class="games-active__stat">
+                        <span class="games-active__stat-label">Можно отправить</span>
+                        <span class="games-active__stat-value"><span data-stat="remaining">…</span></span>
+                    </div>
+                    <div class="games-active__stat">
+                        <span class="games-active__stat-label">Отправлено</span>
+                        <span class="games-active__stat-value"><span data-stat="sent">…</span></span>
+                    </div>
+                </div>
+            </div>
+            <p class="games-active__item-note" data-active-game-note="${game.id}" hidden></p>
+        </article>
+    `).join('');
     empty.hidden = true;
-    statsContainer.hidden = false;
 
-    if (descEl) {
-        descEl.textContent = '';
-        descEl.hidden = true;
-    }
-    if (datesEl) {
-        datesEl.textContent = `${fmtDate(g.game_start)} — ${fmtDate(g.game_end)}`;
-        datesEl.hidden = false;
-    }
-    if (rulesEl) {
-        rulesEl.textContent = '';
-        rulesEl.hidden = true;
-    }
-    if (sentValueEl) sentValueEl.textContent = '…';
+    const setItemStats = (gameId, { received = '—', remaining = '—', sent = '—', note = '' } = {}) => {
+        const statsRoot = listEl.querySelector(`[data-active-game-stats="${gameId}"]`);
+        if (!statsRoot) return;
 
-    receivedEl.textContent = 'Получено Спасибок в текущей игре: …';
-    limitEl.textContent    = 'Остаток Спасибок в текущей игре: …';
-    if (receivedValueEl) receivedValueEl.textContent = '…';
-    if (limitValueEl) limitValueEl.textContent = '…';
+        const receivedEl = statsRoot.querySelector('[data-stat="received"]');
+        const remainingEl = statsRoot.querySelector('[data-stat="remaining"]');
+        const sentEl = statsRoot.querySelector('[data-stat="sent"]');
+        if (receivedEl) receivedEl.textContent = String(received);
+        if (remainingEl) remainingEl.textContent = String(remaining);
+        if (sentEl) sentEl.textContent = String(sent);
 
-    const userId = getCurrentUserId();
+        const noteEl = listEl.querySelector(`[data-active-game-note="${gameId}"]`);
+        if (!noteEl) return;
+        if (note) {
+            noteEl.textContent = note;
+            noteEl.hidden = false;
+        } else {
+            noteEl.hidden = true;
+            noteEl.textContent = '';
+        }
+    };
+
     if (!userId) {
-        receivedEl.textContent = 'Получено Спасибок в текущей игре: —';
-        limitEl.textContent    = 'Остаток Спасибок в текущей игре: —';
-        if (receivedValueEl) receivedValueEl.textContent = '0';
-        if (limitValueEl) limitValueEl.textContent = '0';
-        if (sentValueEl) sentValueEl.textContent = '0';
+        rows.forEach((game) => setItemStats(game.id, { received: '—', remaining: '—', sent: '—' }));
         return;
     }
 
-    try {
-        const likesInfo = await fetchLikesInfo(userId);
+    await Promise.allSettled(rows.map(async (game) => {
+        if (renderNonce !== activeGamesRenderNonce) return;
 
-        receivedEl.textContent =
-            `Получено Спасибок в текущей игре: ${likesInfo.received_likes ?? 0}`;
-        limitEl.textContent =
-            `Остаток Спасибок в текущей игре: ${likesInfo.remaining_likes ?? 0}`;
-        if (receivedValueEl) receivedValueEl.textContent = String(likesInfo.received_likes ?? 0);
-        if (limitValueEl) limitValueEl.textContent = String(likesInfo.remaining_likes ?? 0);
-        if (sentValueEl) sentValueEl.textContent = String(likesInfo.sent_likes ?? 0);
+        if (!isUserInGameParticipants(game, userId)) {
+            setItemStats(game.id, {
+                received: '—',
+                remaining: '—',
+                sent: '—',
+                note: 'Вы не участвуете в этой игре',
+            });
+            return;
+        }
 
-    } catch (e) {
-        console.error(e);
-        toast(e.message || 'Не удалось получить информацию о Спасибках');
-        receivedEl.textContent = 'Получено Спасибок в текущей игре: —';
-        limitEl.textContent    = 'Остаток Спасибок в текущей игре: —';
-        if (receivedValueEl) receivedValueEl.textContent = '0';
-        if (limitValueEl) limitValueEl.textContent = '0';
-    }
+        try {
+            const likesInfo = await fetchLikesInfo(userId, game.id);
+            if (renderNonce !== activeGamesRenderNonce) return;
+
+            if (likesInfo?.is_participant === false) {
+                setItemStats(game.id, {
+                    received: '—',
+                    remaining: '—',
+                    sent: '—',
+                    note: 'Вы не участвуете в этой игре',
+                });
+                return;
+            }
+
+            setItemStats(game.id, {
+                received: Number(likesInfo.received_likes ?? 0).toLocaleString('ru-RU'),
+                remaining: Number(likesInfo.remaining_likes ?? 0).toLocaleString('ru-RU'),
+                sent: Number(likesInfo.sent_likes ?? 0).toLocaleString('ru-RU'),
+            });
+        } catch (e) {
+            if (renderNonce !== activeGamesRenderNonce) return;
+            console.error(e);
+            setItemStats(game.id, {
+                received: '—',
+                remaining: '—',
+                sent: '—',
+            });
+        }
+    }));
 }
 
 
@@ -4496,10 +4761,15 @@ document.addEventListener('DOMContentLoaded', () => {
         loadGames();
         loadOverallRating();
     };
-    document.getElementById('active-game-link')?.addEventListener('click', (e) => {
+    document.getElementById('active-games-list')?.addEventListener('click', (e) => {
+        const target = e.target.closest('[data-active-game-id]');
+        if (!target) return;
         e.preventDefault();
-        if (currentActiveGame) {
-            openGameModalForGame(currentActiveGame, { isActive: true });
+        const gameId = Number(target.getAttribute('data-active-game-id') || '0');
+        if (!gameId) return;
+        const selectedGame = currentActiveGames.find((game) => Number(game.id) === gameId);
+        if (selectedGame) {
+            openGameModalForGame(selectedGame, { isActive: true });
         }
     });
 

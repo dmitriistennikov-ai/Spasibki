@@ -4,30 +4,44 @@ from datetime import datetime, UTC
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from backend.models import LikeTransaction, Employee, LikeRequest, GameParticipant
-from .db_search_active_game import search_active_game
+from backend.models import LikeTransaction, Employee, LikeRequest, GameParticipant, Game
+from backend.services.game_service import get_sent_likes_count
 
 logger = logging.getLogger(__name__)
 
 
 def process_like_transaction(db: Session, payload: LikeRequest) -> tuple[int, int]:
-    active_game = search_active_game(db)
+    game = db.query(Game).filter(Game.id == payload.game_id).first()
 
-    if not active_game:
+    if not game:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Игра не найдена",
+        )
+
+    if not game.game_is_active:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail="Нельзя отправить Спасибку: сейчас нет активной игры")
+                            detail="Нельзя отправить Спасибку: выбранная игра не активна")
 
-    if datetime.now(UTC).date() > active_game.game_end.date():
+    today = datetime.now(UTC).date()
+
+    if game.game_start and today < game.game_start.date():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Нельзя отправить Спасибку: дата завершения игры {active_game.game_end.date()} прошла"
+            detail=f"Нельзя отправить Спасибку: игра начнётся {game.game_start.date()}",
+        )
+
+    if game.game_end and today > game.game_end.date():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Нельзя отправить Спасибку: дата завершения игры {game.game_end.date()} прошла"
         )
 
     participant_ids = {
         row.employee_bitrix_id
         for row in (
             db.query(GameParticipant.employee_bitrix_id)
-            .filter(GameParticipant.game_id == active_game.id)
+            .filter(GameParticipant.game_id == game.id)
             .all()
         )
     }
@@ -35,39 +49,32 @@ def process_like_transaction(db: Session, payload: LikeRequest) -> tuple[int, in
     if payload.from_id not in participant_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Нельзя отправить Спасибку: отправитель не участвует в активной игре",
+            detail="Нельзя отправить Спасибку: отправитель не участвует в выбранной игре",
         )
 
     if payload.to_id not in participant_ids:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Нельзя отправить Спасибку: получатель не участвует в активной игре",
+            detail="Нельзя отправить Спасибку: получатель не участвует в выбранной игре",
         )
 
     count_in_this_game = (
         db.query(LikeTransaction)
         .filter(
-            LikeTransaction.game_id == active_game.id,
+            LikeTransaction.game_id == game.id,
             LikeTransaction.from_user_bitrix_id == payload.from_id,
             LikeTransaction.to_user_bitrix_id == payload.to_id,
         )
         .count()
     )
 
-    if count_in_this_game >= active_game.setting_limitToOneUser:
+    if count_in_this_game >= game.setting_limitToOneUser:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                             detail="Вы превысили лимит на Спасибки для одного сотрудника")
 
-    sent_in_period = (
-        db.query(LikeTransaction)
-        .filter(
-            LikeTransaction.game_id == active_game.id,
-            LikeTransaction.from_user_bitrix_id == payload.from_id,
-        )
-        .count()
-    )
+    sent_in_period = get_sent_likes_count(db, payload.from_id, game)
 
-    if sent_in_period >= active_game.setting_limitValue:
+    if sent_in_period >= game.setting_limitValue:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Вы израсходовали лимит Спасибок",
@@ -93,7 +100,7 @@ def process_like_transaction(db: Session, payload: LikeRequest) -> tuple[int, in
             to_user_bitrix_id=payload.to_id,
             message=payload.message,
             created_at=datetime.utcnow(),
-            game_id=active_game.id,
+            game_id=game.id,
             sticker_id=payload.sticker_id,
         )
         db.add(new_like_transaction)

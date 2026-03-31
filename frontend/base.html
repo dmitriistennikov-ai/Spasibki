@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
     <title>Спасибки</title>
-    <link rel="stylesheet" href="css/new_main.css?v=20260227-3"/>
+    <link rel="stylesheet" href="css/new_main.css?v=20260325-1"/>
 </head>
 <body>
 
@@ -107,7 +107,34 @@
 
                             <form id="thanks-form" class="home-composer__form">
                                 <div class="home-composer__topline">
-                                    <div class="home-composer__recipient">
+                                    <div class="home-composer__selectors">
+                                        <div class="home-composer__recipient home-composer__recipient--game">
+                                            <select
+                                                id="thanks-game"
+                                                name="game_id"
+                                                class="visually-hidden"
+                                            >
+                                                <option value="" disabled selected>Выберите игру…</option>
+                                            </select>
+
+                                            <div id="thanks-game-dropdown" class="thanks-to-dropdown">
+                                                <button
+                                                    type="button"
+                                                    class="thanks-to-dropdown__trigger home-composer__recipient-trigger home-composer__game-trigger"
+                                                    aria-haspopup="listbox"
+                                                    aria-expanded="false"
+                                                >
+                                                    Выберите игру…
+                                                </button>
+                                                <ul
+                                                    class="thanks-to-dropdown__list"
+                                                    role="listbox"
+                                                    hidden
+                                                ></ul>
+                                            </div>
+                                        </div>
+
+                                        <div class="home-composer__recipient home-composer__recipient--employee">
                                         <select
                                             id="thanks-to"
                                             name="to"
@@ -124,7 +151,7 @@
                                                 aria-haspopup="listbox"
                                                 aria-expanded="false"
                                             >
-                                                Загрузка…
+                                                Сначала выберите игру
                                             </button>
                                             <ul
                                                 class="thanks-to-dropdown__list"
@@ -132,6 +159,7 @@
                                                 hidden
                                             ></ul>
                                         </div>
+                                    </div>
                                     </div>
 
                                     <p id="home-composer-limit" class="home-composer__limit">Проверяем лимит текущей игры…</p>
@@ -232,38 +260,9 @@
 
                             <div class="games-active__meta">
                                 <p class="games-active__eyebrow">Активная игра</p>
-                                <a id="active-game-link" href="#" class="games-active__title" hidden>Название активной игры</a>
+                                <div id="active-games-list" class="games-active__list" hidden></div>
                                 <p id="active-game-empty" class="games-active__empty">В данный момент нет активной игры</p>
-                                <p id="active-game-description" class="games-active__description" hidden></p>
-                                <p id="active-game-dates" class="games-active__dates" hidden></p>
-                                <p id="active-game-rules" class="games-active__rules" hidden></p>
                             </div>
-
-                            <div id="game-stats-container" class="games-active__stats" hidden>
-                                <div class="games-active__stat">
-                                    <span class="games-active__stat-label">Получено</span>
-                                    <span class="games-active__stat-value">
-                                        <span id="game-thanks-received-value">0</span>
-                                    </span>
-                                </div>
-                                <div class="games-active__stat">
-                                    <span class="games-active__stat-label">Можно отправить</span>
-                                    <span class="games-active__stat-value">
-                                        <span id="game-thanks-limit-value">0</span>
-                                    </span>
-                                </div>
-                                <div class="games-active__stat">
-                                    <span class="games-active__stat-label">Отправлено</span>
-                                    <span class="games-active__stat-value">
-                                        <span id="game-thanks-sent-value">0</span>
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="visually-hidden" aria-hidden="true">
-                            <p id="game-thanks-received" class="thanks-limit">Получено Спасибок в текущей игре: —</p>
-                            <p id="game-thanks-limit" class="thanks-limit">Остаток Спасибок в текущей игре: —</p>
                         </div>
 
                         <button id="send-thanks-btn-in-game" class="visually-hidden" type="button">Отправить Спасибку</button>
@@ -705,7 +704,7 @@
                         <span>Игра Активна</span>
                     </label>
                     <p id="game-edit-active-hint" class="game-edit__hint" hidden>
-                        Если у вас уже есть активная игра, то она завершится.
+                        Игра появится в списке активных игр.
                     </p>
                 </div>
 
@@ -797,7 +796,7 @@
                         <span>Игра активна</span>
                     </label>
                     <p id="game-create-active-hint" class="game-edit__hint" hidden>
-                        Если у вас уже есть активная игра, то она завершится.
+                        Игра появится в списке активных игр.
                     </p>
                 </div>
 
@@ -1308,7 +1307,7 @@
     </div>
 
     <script src="https://unpkg.com/feather-icons"></script>
-    <script src="js/main.js?v=20260227-3" defer></script>
+    <script src="js/main.js?v=20260325-1" defer></script>
 
 </body>
 </html>

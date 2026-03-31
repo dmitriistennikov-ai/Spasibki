@@ -22,6 +22,7 @@ async def get_all_users(
     offset: int = 0,
     only_gamers: bool = False,
     active_game_only: bool = False,
+    game_id: int | None = None,
     db: Session = Depends(get_db),
 ):
     """
@@ -36,7 +37,13 @@ async def get_all_users(
     if only_gamers:
         query = query.filter(Employee.is_gamer.is_(True))
 
-    if active_game_only:
+    if game_id is not None:
+        participant_ids_subq = (
+            db.query(GameParticipant.employee_bitrix_id)
+            .filter(GameParticipant.game_id == game_id)
+        )
+        query = query.filter(Employee.bitrix_id.in_(participant_ids_subq))
+    elif active_game_only:
         active_game = (
             db.query(Game)
             .filter(Game.game_is_active.is_(True))

@@ -417,12 +417,6 @@ def update_game(
     elif data.get("game_end") is not None and data.get("game_end") <= game.game_start:
         raise HTTPException(status_code=400, detail="Новая дата завершения должна быть позже текущей даты начала")
 
-    if data.get("game_is_active") is True:
-        db.query(Game).filter(
-            Game.id != game_id,
-            Game.game_is_active.is_(True)
-        ).update({Game.game_is_active: False})
-
     for field, value in data.items():
         setattr(game, field, value)
 
@@ -509,14 +503,6 @@ def delete_game(game_id: int, admin_id: int | None = None, db: Session = Depends
 def create_game(game_data: GameCreate, admin_id: int | None = None, db: Session = Depends(get_db)):
     if game_data.game_start >= game_data.game_end:
         raise HTTPException(status_code=400, detail="Дата начала должна быть раньше даты завершения")
-
-    if game_data.game_is_active:
-        existing_active_game = db.query(Game).filter(Game.game_is_active.is_(True)).first()
-        if existing_active_game:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Нельзя создать активную игру. Уже есть активная игра: '{existing_active_game.name}'"
-            )
 
     try:
         payload = game_data.model_dump()

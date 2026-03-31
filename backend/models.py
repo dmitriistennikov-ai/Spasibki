@@ -159,6 +159,7 @@ class LikeTransaction(Base):
 
 
 class LikeRequest(BaseModel):
+    game_id: int = Field(ge=1)
     from_id: int = Field(ge=1)
     to_id: int = Field(ge=1)
     message: Optional[str] = Field(default=None, max_length=280)
