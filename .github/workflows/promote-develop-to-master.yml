@@ -24,10 +24,10 @@ jobs:
       - name: Fetch all branches
         run: git fetch origin
 
-      - name: Merge develop into master (fast-forward only)
+      - name: Merge develop into master
         run: |
           git checkout master
-          git merge --ff-only origin/develop
+          git merge origin/develop
 
       - name: Push master
         run: git push origin master
@@ -70,4 +70,3 @@ jobs:
             echo "❌ Приложение так и не ответило. Покажем логи app:"
             docker compose logs app --tail=100 || true
             exit 1
-
