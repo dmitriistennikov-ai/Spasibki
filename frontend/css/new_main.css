@@ -3471,6 +3471,21 @@ table__empty {
   padding-right: 2px;
 }
 
+.home-feed__pager {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.home-feed__page-label {
+  font-size: 14px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
 .home-feed__empty {
   margin: 0;
   padding: 14px;

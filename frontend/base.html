@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
     <title>Спасибки</title>
-    <link rel="stylesheet" href="css/new_main.css?v=20260325-1"/>
+    <link rel="stylesheet" href="css/new_main.css?v=20260504-1"/>
 </head>
 <body>
 
@@ -220,6 +220,11 @@
 
                         <div id="home-feed-list" class="home-feed__list" aria-live="polite">
                             <p class="placeholder">Загрузка ленты…</p>
+                        </div>
+                        <div id="home-feed-pager" class="home-feed__pager" hidden>
+                            <button type="button" class="btn btn--tiny" id="home-feed-prev-page-btn">Предыдущая</button>
+                            <span id="home-feed-current-page" class="home-feed__page-label">Страница 1</span>
+                            <button type="button" class="btn btn--tiny" id="home-feed-next-page-btn">Следующая</button>
                         </div>
                     </section>
                 </div>
@@ -1307,7 +1312,7 @@
     </div>
 
     <script src="https://unpkg.com/feather-icons"></script>
-    <script src="js/main.js?v=20260325-1" defer></script>
+    <script src="js/main.js?v=20260504-1" defer></script>
 
 </body>
 </html>

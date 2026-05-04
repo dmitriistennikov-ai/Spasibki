@@ -946,6 +946,9 @@ function esc(s) {
 let homeFeedRows = [];
 let homeFeedFilter = 'all';
 let homeFeedLimit = 20;
+let homeFeedPage = 1;
+let homeFeedTotalPages = 1;
+const homeFeedPageCache = new Map();
 
 
 function switchToTab(tabId) {
@@ -1192,6 +1195,58 @@ function applyHomeFeedFilter() {
 }
 
 
+function updateHomeFeedPager() {
+    const pager = document.getElementById('home-feed-pager');
+    const prevButton = document.getElementById('home-feed-prev-page-btn');
+    const nextButton = document.getElementById('home-feed-next-page-btn');
+    const currentPageSpan = document.getElementById('home-feed-current-page');
+    if (!pager || !prevButton || !nextButton || !currentPageSpan) return;
+
+    currentPageSpan.textContent = `Страница ${homeFeedPage} из ${homeFeedTotalPages}`;
+    prevButton.disabled = homeFeedPage <= 1;
+    nextButton.disabled = homeFeedPage >= homeFeedTotalPages;
+    pager.hidden = homeFeedTotalPages <= 1;
+}
+
+
+function setHomeFeedPagerLoading() {
+    const pager = document.getElementById('home-feed-pager');
+    const prevButton = document.getElementById('home-feed-prev-page-btn');
+    const nextButton = document.getElementById('home-feed-next-page-btn');
+    const currentPageSpan = document.getElementById('home-feed-current-page');
+    if (!pager || !prevButton || !nextButton || !currentPageSpan) return;
+
+    pager.hidden = false;
+    currentPageSpan.textContent = `Страница ${homeFeedPage} из ${homeFeedTotalPages}`;
+    prevButton.disabled = true;
+    nextButton.disabled = true;
+}
+
+
+function initHomeFeedPager() {
+    const prevButton = document.getElementById('home-feed-prev-page-btn');
+    const nextButton = document.getElementById('home-feed-next-page-btn');
+
+    if (prevButton && prevButton.dataset.homeFeedInit !== '1') {
+        prevButton.addEventListener('click', () => {
+            if (homeFeedPage <= 1) return;
+            loadHomeFeed(homeFeedPage - 1);
+        });
+        prevButton.dataset.homeFeedInit = '1';
+    }
+
+    if (nextButton && nextButton.dataset.homeFeedInit !== '1') {
+        nextButton.addEventListener('click', () => {
+            if (homeFeedPage >= homeFeedTotalPages) return;
+            loadHomeFeed(homeFeedPage + 1);
+        });
+        nextButton.dataset.homeFeedInit = '1';
+    }
+
+    updateHomeFeedPager();
+}
+
+
 function initHomeFeedFilters() {
     const bindings = [
         ['home-feed-filter-all', 'all'],
@@ -1211,22 +1266,66 @@ function initHomeFeedFilters() {
 }
 
 
-async function loadHomeFeed() {
+async function fetchHomeFeedPageData(page) {
+    const requestedPage = Math.max(1, Number(page) || 1);
+    const offset = (requestedPage - 1) * homeFeedLimit;
+    const res = await fetch(`/api/activity/feed?limit=${homeFeedLimit}&offset=${offset}`);
+    if (!res.ok) throw new Error(`Не удалось загрузить ленту (${res.status})`);
+    const data = await res.json();
+    return {
+        rows: Array.isArray(data.events) ? data.events : [],
+        totalPages: Math.max(1, Number(data.total_pages) || 1),
+    };
+}
+
+
+async function loadHomeFeed(page = homeFeedPage, { force = false } = {}) {
     const container = document.getElementById('home-feed-list');
     if (!container) return;
 
+    const requestedPage = Math.max(1, Number(page) || 1);
+    if (force) homeFeedPageCache.clear();
+
+    if (!force && homeFeedPageCache.has(requestedPage)) {
+        homeFeedPage = requestedPage;
+        homeFeedRows = homeFeedPageCache.get(requestedPage) || [];
+        applyHomeFeedFilter();
+        updateHomeFeedPager();
+        return;
+    }
+
     container.innerHTML = '<p class="home-feed__empty">Загрузка ленты активности…</p>';
+    setHomeFeedPagerLoading();
 
     try {
-        const res = await fetch(`/api/activity/feed?limit=${homeFeedLimit}&offset=0`);
-        if (!res.ok) throw new Error(`Не удалось загрузить ленту (${res.status})`);
-        const data = await res.json();
-        homeFeedRows = Array.isArray(data.events) ? data.events : [];
+        const firstFetch = await fetchHomeFeedPageData(requestedPage);
+        homeFeedTotalPages = firstFetch.totalPages;
+
+        let effectivePage = Math.min(requestedPage, homeFeedTotalPages);
+        let pageRows = firstFetch.rows;
+
+        if (effectivePage !== requestedPage) {
+            if (homeFeedPageCache.has(effectivePage)) {
+                pageRows = homeFeedPageCache.get(effectivePage) || [];
+            } else {
+                const correctedFetch = await fetchHomeFeedPageData(effectivePage);
+                pageRows = correctedFetch.rows;
+            }
+        }
+
+        homeFeedPage = effectivePage;
+        homeFeedRows = pageRows;
+        homeFeedPageCache.set(homeFeedPage, homeFeedRows);
         applyHomeFeedFilter();
+        updateHomeFeedPager();
     } catch (e) {
         console.error(e);
         homeFeedRows = [];
+        homeFeedPage = 1;
+        homeFeedTotalPages = 1;
+        homeFeedPageCache.clear();
         container.innerHTML = '<p class="home-feed__empty">Не удалось загрузить ленту активности.</p>';
+        updateHomeFeedPager();
     }
 }
 
@@ -1440,7 +1539,7 @@ async function loadHomePurchases(page = compactPurchasesPage) {
 async function loadHomeDashboardData() {
     await Promise.allSettled([
         refreshHomeComposerInfo(),
-        loadHomeFeed(),
+        loadHomeFeed(1, { force: true }),
         loadHomeTopThree(),
         loadHomePurchases(),
     ]);
@@ -4736,6 +4835,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initTabs();
     initHomeSidebarNav();
     initHomeFeedFilters();
+    initHomeFeedPager();
     initCompactPurchasesPagination();
     loadCurrentUser();
     openThanksModal();
