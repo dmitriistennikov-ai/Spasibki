@@ -1904,7 +1904,7 @@ async function loadGameRatingById(gameId) {
 }
 
 
-function renderGameRating(rows, containerId = 'game-modal-rating') {
+function renderGameRating(rows, containerId = 'game-modal-rating', startIndex = 1) {
     const root = document.getElementById(containerId);
     if (!root) return;
 
@@ -1947,6 +1947,7 @@ function renderGameRating(rows, containerId = 'game-modal-rating') {
         </div>
     `;
 
+    const baseIndex = Math.max(1, Number(startIndex) || 1);
     const items = rows.map((row, idx) => {
         const fio = row.fio || '—';
         const avatarHtml = row.photo_url
@@ -1955,7 +1956,7 @@ function renderGameRating(rows, containerId = 'game-modal-rating') {
 
         return `
             <li class="game-rating__item">
-                <span class="game-rating__index">${idx + 1}</span>
+                <span class="game-rating__index">${baseIndex + idx}</span>
                 <span class="game-rating__name">
                     ${avatarHtml}
                     <span class="game-rating__fio">${esc(fio)}</span>
@@ -2010,7 +2011,8 @@ async function loadOverallRating(page = overallRatingPage) {
             overallRatingPage = overallRatingTotalPages;
         }
 
-        renderGameRating(rows, containerId);
+        const startIndex = ((overallRatingPage - 1) * overallRatingLimit) + 1;
+        renderGameRating(rows, containerId, startIndex);
 
         pageSpan.textContent = `Страница ${overallRatingPage}`;
 
