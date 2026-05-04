@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
     <title>Спасибки</title>
-    <link rel="stylesheet" href="css/new_main.css?v=20260504-2"/>
+    <link rel="stylesheet" href="css/new_main.css?v=20260504-4"/>
 </head>
 <body>
 
@@ -605,20 +605,23 @@
                 <button type="button" class="modal__close" id="game-modal-close" aria-label="Закрыть">✕</button>
             </header>
 
-            <div class="modal__content">
-                <p><strong>Название:</strong> <span id="game-modal-name">—</span></p>
-                <p><strong>Описание:</strong> <span id="game-modal-description">—</span></p>
-                <div class="game-modal__row game-modal__row--dates">
-                    <p><strong>Дата начала:</strong> <span id="game-modal-start">—</span></p>
-                    <p><strong>Дата завершения:</strong> <span id="game-modal-end">—</span></p>
+            <div class="game-modal__body">
+                <div class="modal__content">
+                    <p><strong>Название:</strong> <span id="game-modal-name">—</span></p>
+                    <p><strong>Описание:</strong> <span id="game-modal-description">—</span></p>
+                    <div class="game-modal__row game-modal__row--dates">
+                        <p><strong>Дата начала:</strong> <span id="game-modal-start">—</span></p>
+                        <p><strong>Дата завершения:</strong> <span id="game-modal-end">—</span></p>
+                    </div>
+                    <p><strong>Правила:</strong> <span id="game-modal-rule">—</span></p>
                 </div>
-                <p><strong>Правила:</strong> <span id="game-modal-rule">—</span></p>
-            </div>
-            <div class="modal__content">
-                <div class="game-rating">
-                    <h4 class="game-rating__title">Рейтинг игры</h4>
-                    <div id="game-modal-rating" class="game-rating__body">
-                        <p class="game-rating__empty">По этой игре ещё нет Спасибок</p>
+
+                <div class="modal__content">
+                    <div class="game-rating">
+                        <h4 class="game-rating__title">Рейтинг игры</h4>
+                        <div id="game-modal-rating" class="game-rating__body">
+                            <p class="game-rating__empty">По этой игре ещё нет Спасибок</p>
+                        </div>
                     </div>
                 </div>
             </div>
