@@ -2597,6 +2597,15 @@ function renderSettingsGames(games) {
             <td>
               <button
                     type="button"
+                    class="settings-game-stats-btn icon-btn icon-btn--stats"
+                    data-game-id="${g.id}"
+                    aria-label="Статистика игры «${esc(g.name ?? '')}»"
+                    title="Статистика игры"
+                >
+                    <span class="icon-btn__emoji" aria-hidden="true">📊</span>
+                </button>
+              <button
+                    type="button"
                     class="settings-game-edit-btn icon-btn icon-btn--edit"
                     data-game-id="${g.id}"
                     aria-label="Редактировать игру «${esc(g.name ?? '')}»"
@@ -2633,6 +2642,157 @@ function renderSettingsGames(games) {
             </table>
         </div>
     `;
+}
+
+
+function formatLimitParameterLabel(value) {
+    const normalized = String(value || '').toLowerCase();
+    if (normalized === 'day') return 'в день';
+    if (normalized === 'week') return 'в неделю';
+    if (normalized === 'month') return 'в месяц';
+    if (normalized === 'game') return 'за игру';
+    return '';
+}
+
+
+function renderGameStatsModalRows(data) {
+    const container = document.getElementById('game-stats-modal-content');
+    if (!container) return;
+
+    const rows = Array.isArray(data?.rows) ? data.rows : [];
+    if (!rows.length) {
+        container.innerHTML = `
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Сотрудник</th>
+                        <th>Отправлено</th>
+                        <th>Остаток</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="3" class="table__empty">В этой игре пока нет участников.</td>
+                    </tr>
+                </tbody>
+            </table>
+        `;
+        return;
+    }
+
+    const bodyRows = rows.map((row) => {
+        const fullName = row.fio || 'Без имени';
+        const initial = esc((fullName.trim().charAt(0) || 'С').toUpperCase());
+        const sent = Number(row.sent || 0).toLocaleString('ru-RU');
+        const remainingValue = row.remaining;
+        const remaining = remainingValue === null || remainingValue === undefined
+            ? '<span class="game-stats__remaining game-stats__remaining--na">—</span>'
+            : `<span class="game-stats__remaining">${Number(remainingValue || 0).toLocaleString('ru-RU')}</span>`;
+
+        return `
+            <tr>
+                <td>
+                    <div class="game-stats__name">
+                        <span class="game-stats__avatar" aria-hidden="true">
+                            ${row.photo_url ? `<img src="${esc(row.photo_url)}" alt="">` : initial}
+                        </span>
+                        <span class="game-stats__fio" title="${esc(fullName)}">${esc(fullName)}</span>
+                    </div>
+                </td>
+                <td class="game-stats__num">${sent}</td>
+                <td>${remaining}</td>
+            </tr>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Сотрудник</th>
+                    <th>Отправлено</th>
+                    <th>Остаток</th>
+                </tr>
+            </thead>
+            <tbody>${bodyRows}</tbody>
+        </table>
+    `;
+}
+
+
+async function openGameStatsModal(game) {
+    const modal = document.getElementById('game-stats-modal');
+    if (!modal || !game?.id) return;
+
+    const nameEl = modal.querySelector('#game-stats-modal-name');
+    const hintEl = modal.querySelector('#game-stats-modal-hint');
+    const contentEl = modal.querySelector('#game-stats-modal-content');
+
+    if (nameEl) nameEl.textContent = game.name || '—';
+    if (hintEl) hintEl.textContent = 'Загрузка статистики…';
+    if (contentEl) {
+        contentEl.innerHTML = `
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Сотрудник</th>
+                        <th>Отправлено</th>
+                        <th>Остаток</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="3" class="table__empty">Загрузка статистики…</td>
+                    </tr>
+                </tbody>
+            </table>
+        `;
+    }
+
+    modal.hidden = false;
+    modal.setAttribute('aria-hidden', 'false');
+
+    try {
+        const response = await fetch(`/api/games/${encodeURIComponent(game.id)}/stats`);
+        if (!response.ok) {
+            let msg = `Не удалось загрузить статистику (${response.status})`;
+            try {
+                const data = await response.json();
+                if (data?.detail) msg = data.detail;
+            } catch (_) {}
+            throw new Error(msg);
+        }
+
+        const data = await response.json();
+        renderGameStatsModalRows(data);
+
+        if (hintEl) {
+            if (data.game_is_active) {
+                const period = formatLimitParameterLabel(data.limit_parameter);
+                const periodText = period ? ` ${period}` : '';
+                hintEl.textContent = `Лимит: ${Number(data.limit_value || 0).toLocaleString('ru-RU')}${periodText}. Остаток считается на текущий момент.`;
+            } else {
+                hintEl.textContent = 'Игра не активна. Для завершённых игр остаток не рассчитывается.';
+            }
+        }
+    } catch (err) {
+        console.error(err);
+        toast(err.message || 'Не удалось загрузить статистику игры');
+        if (contentEl) {
+            contentEl.innerHTML = `
+                <p class="placeholder">Не удалось загрузить статистику игры.</p>
+            `;
+        }
+        if (hintEl) hintEl.textContent = 'Ошибка загрузки.';
+    }
+}
+
+
+function closeGameStatsModal() {
+    const modal = document.getElementById('game-stats-modal');
+    if (!modal) return;
+    modal.hidden = true;
+    modal.setAttribute('aria-hidden', 'true');
 }
 
 
@@ -2755,6 +2915,15 @@ function initSettingsNav() {
 
 
     settingsContent.addEventListener('click', async (event) => {
+    const gameStatsBtn = event.target.closest('.settings-game-stats-btn');
+    if (gameStatsBtn) {
+        const id = Number(gameStatsBtn.dataset.gameId);
+        const game = settingsGames.find(g => g.id === id);
+        if (!game) return;
+        await openGameStatsModal(game);
+        return;
+    }
+
     const gameEditBtn = event.target.closest('.settings-game-edit-btn');
     if (gameEditBtn) {
         const id = Number(gameEditBtn.dataset.gameId);
@@ -4891,6 +5060,12 @@ document.addEventListener('DOMContentLoaded', () => {
     gameModal?.querySelector('#game-modal-close-footer')?.addEventListener('click', closeGameModal);
     gameModal?.querySelector('.modal__overlay')?.addEventListener('click', closeGameModal);
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !gameModal?.hidden) { closeGameModal(); } });
+
+    const gameStatsModal = document.getElementById('game-stats-modal');
+    gameStatsModal?.querySelector('#game-stats-modal-close')?.addEventListener('click', closeGameStatsModal);
+    gameStatsModal?.querySelector('#game-stats-modal-close-footer')?.addEventListener('click', closeGameStatsModal);
+    gameStatsModal?.querySelector('.modal__overlay')?.addEventListener('click', closeGameStatsModal);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !gameStatsModal?.hidden) { closeGameStatsModal(); } });
 
     if (window.feather?.replace) feather.replace({ width: 18, height: 18 });
 

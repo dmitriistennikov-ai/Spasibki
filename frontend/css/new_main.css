@@ -1345,6 +1345,7 @@ table__empty {
 
 #game-edit-modal .modal__dialog,
 #game-create-modal .modal__dialog,
+#game-stats-modal .modal__dialog,
 #shop-item-create-modal .modal__dialog,
 #shop-item-edit-modal .modal__dialog,
 #sticker-create-modal .modal__dialog,
@@ -1366,6 +1367,9 @@ table__empty {
 #game-create-modal .modal__header,
 #game-create-modal .modal__content,
 #game-create-modal .modal__footer,
+#game-stats-modal .modal__header,
+#game-stats-modal .modal__content,
+#game-stats-modal .modal__footer,
 #shop-item-create-modal .modal__header,
 #shop-item-create-modal .modal__content,
 #shop-item-create-modal .modal__footer,
@@ -1731,6 +1735,10 @@ table__empty {
   color: #ff6b6b;
 }
 
+.icon-btn--stats {
+  color: #f7b267;
+}
+
 .icon-btn:hover {
   background: rgba(255, 255, 255, 0.06);
   transform: translateY(-1px);
@@ -2050,6 +2058,67 @@ table__empty {
     font-size: 18px;
     line-height: 1.45;
     color: var(--fg);
+}
+
+#game-stats-modal.modal {
+  z-index: 235;
+}
+
+#game-stats-modal .modal__dialog {
+  width: min(960px, 94vw);
+  max-height: 84vh;
+}
+
+#game-stats-modal .game-stats-modal__body {
+  overflow-y: auto;
+  max-height: calc(84vh - 132px);
+}
+
+#game-stats-modal .table-wrap {
+  margin-top: 0;
+  overflow-x: auto;
+}
+
+#game-stats-modal .table {
+  min-width: 540px;
+}
+
+#game-stats-modal .game-stats__name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+#game-stats-modal .game-stats__avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--surface-2);
+}
+
+#game-stats-modal .game-stats__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+#game-stats-modal .game-stats__fio {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#game-stats-modal .game-stats__num,
+#game-stats-modal .game-stats__remaining {
+  font-variant-numeric: tabular-nums;
+}
+
+#game-stats-modal .game-stats__remaining--na {
+  color: var(--muted);
 }
 
 .table-wrap {

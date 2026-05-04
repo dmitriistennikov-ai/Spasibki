@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -12,6 +12,7 @@ from backend.models import (
     GameParticipant,
     Employee,
     LikeTransaction,
+    LimitParameter,
     GameResponse,
     GameUpdate,
     GameCreate,
@@ -19,6 +20,8 @@ from backend.models import (
     OverallRatingResponse,
     MonthlyTopResponse,
     MonthlyTopRow,
+    GameParticipantStatsRow,
+    GameStatsResponse,
 )
 from backend.scripts.database import get_db
 from backend.scripts.time_utils import LOCAL_TZ
@@ -101,6 +104,22 @@ def replace_game_participants(db: Session, game_id: int, participant_ids: list[i
             GameParticipant(game_id=game_id, employee_bitrix_id=bitrix_id)
             for bitrix_id in participant_ids
         ])
+
+
+def get_game_period_start(game: Game, now: datetime) -> datetime | None:
+    param = game.setting_limitParameter
+
+    if param == LimitParameter.DAY:
+        return now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    if param == LimitParameter.WEEK:
+        monday = now - timedelta(days=now.weekday())
+        return monday.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    if param == LimitParameter.MONTH:
+        return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    return None
 
 
 # ---------- Вспомогательная функция рейтинга ----------
@@ -368,6 +387,89 @@ def get_game_rating(game_id: int, db: Session = Depends(get_db)):
             detail="Игра не найдена",
         )
     return calc_game_rating(game.id, db)
+
+
+@router.get("/api/games/{game_id}/stats", response_model=GameStatsResponse)
+def get_game_stats(game_id: int, db: Session = Depends(get_db)):
+    game = db.query(Game).filter(Game.id == game_id).first()
+    if not game:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Игра не найдена",
+        )
+
+    participants = (
+        db.query(
+            Employee.bitrix_id,
+            Employee.name,
+            Employee.lastname,
+            Employee.photo_url,
+        )
+        .join(GameParticipant, GameParticipant.employee_bitrix_id == Employee.bitrix_id)
+        .filter(GameParticipant.game_id == game.id)
+        .order_by(Employee.lastname.asc(), Employee.name.asc())
+        .all()
+    )
+
+    participant_ids = [int(row.bitrix_id) for row in participants]
+    sent_counts_map: dict[int, int] = {}
+
+    if participant_ids:
+        sent_query = (
+            db.query(
+                LikeTransaction.from_user_bitrix_id.label("bitrix_id"),
+                func.count(LikeTransaction.id).label("sent"),
+            )
+            .filter(
+                LikeTransaction.game_id == game.id,
+                LikeTransaction.from_user_bitrix_id.in_(participant_ids),
+            )
+        )
+
+        if game.game_is_active and game.setting_limitParameter != LimitParameter.GAME:
+            now = datetime.utcnow()
+            period_start = get_game_period_start(game, now)
+            if period_start is not None:
+                sent_query = sent_query.filter(LikeTransaction.created_at >= period_start)
+
+        sent_counts = (
+            sent_query
+            .group_by(LikeTransaction.from_user_bitrix_id)
+            .all()
+        )
+        sent_counts_map = {int(row.bitrix_id): int(row.sent) for row in sent_counts}
+
+    rows: list[GameParticipantStatsRow] = []
+    for participant in participants:
+        bitrix_id = int(participant.bitrix_id)
+        sent = sent_counts_map.get(bitrix_id, 0)
+        fio = f"{(participant.lastname or '').strip()} {(participant.name or '').strip()}".strip() or "Без имени"
+        remaining = None
+        if game.game_is_active:
+            remaining = max(0, int(game.setting_limitValue or 0) - sent)
+
+        rows.append(
+            GameParticipantStatsRow(
+                bitrix_id=bitrix_id,
+                photo_url=participant.photo_url,
+                fio=fio,
+                sent=sent,
+                remaining=remaining,
+            )
+        )
+
+    return GameStatsResponse(
+        game_id=int(game.id),
+        game_name=game.name,
+        game_is_active=bool(game.game_is_active),
+        limit_parameter=(
+            game.setting_limitParameter.value
+            if getattr(game, "setting_limitParameter", None) is not None
+            else None
+        ),
+        limit_value=int(game.setting_limitValue or 0),
+        rows=rows,
+    )
 
 
 @router.get("/api/games/active/rating", response_model=List[GameRatingRow])

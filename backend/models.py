@@ -345,6 +345,26 @@ class GameRatingRow(BaseModel):
         from_attributes = True
 
 
+class GameParticipantStatsRow(BaseModel):
+    bitrix_id: int
+    photo_url: Optional[str] = None
+    fio: str
+    sent: int
+    remaining: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+
+class GameStatsResponse(BaseModel):
+    game_id: int
+    game_name: str
+    game_is_active: bool
+    limit_parameter: Optional[str] = None
+    limit_value: Optional[int] = None
+    rows: List[GameParticipantStatsRow]
+
+
 class OverallRatingResponse(BaseModel):
     rating: List[GameRatingRow]
     total_pages: int

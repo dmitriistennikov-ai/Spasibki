@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
     <title>Спасибки</title>
-    <link rel="stylesheet" href="css/new_main.css?v=20260504-4"/>
+    <link rel="stylesheet" href="css/new_main.css?v=20260504-5"/>
 </head>
 <body>
 
@@ -632,7 +632,48 @@
         </div>
     </div>
 
-        <!-- Модалка редактирования игры -->
+    <!-- Модалка статистики игры -->
+    <div id="game-stats-modal" class="modal" role="dialog" aria-modal="true" aria-hidden="true" hidden>
+        <div class="modal__overlay"></div>
+        <div class="modal__dialog" role="document" aria-labelledby="game-stats-modal-title">
+            <header class="modal__header">
+                <h3 id="game-stats-modal-title" class="modal__title">Статистика игры</h3>
+                <button type="button" class="modal__close" id="game-stats-modal-close" aria-label="Закрыть">✕</button>
+            </header>
+
+            <div class="game-stats-modal__body">
+                <div class="modal__content">
+                    <p><strong>Название:</strong> <span id="game-stats-modal-name">—</span></p>
+                    <p id="game-stats-modal-hint" class="home-card__subtle">Загрузка статистики…</p>
+                </div>
+
+                <div class="modal__content">
+                    <div id="game-stats-modal-content" class="table-wrap">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Сотрудник</th>
+                                    <th>Отправлено</th>
+                                    <th>Остаток</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="3" class="table__empty">Загрузка статистики…</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <footer class="modal__footer">
+                <button type="button" class="btn" id="game-stats-modal-close-footer">Закрыть</button>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Модалка редактирования игры -->
     <div id="game-edit-modal" class="modal" role="dialog" aria-modal="true" aria-hidden="true" hidden>
         <div class="modal__overlay"></div>
         <div class="modal__dialog" role="document" aria-labelledby="game-edit-modal-title">
@@ -1315,7 +1356,7 @@
     </div>
 
     <script src="https://unpkg.com/feather-icons"></script>
-    <script src="js/main.js?v=20260504-3" defer></script>
+    <script src="js/main.js?v=20260504-4" defer></script>
 
 </body>
 </html>
