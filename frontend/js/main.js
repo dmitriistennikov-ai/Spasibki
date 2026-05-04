@@ -1990,7 +1990,7 @@ async function loadOverallRating(page = overallRatingPage) {
 
     if (!root || !prevBtn || !nextBtn || !pageSpan) return;
 
-    overallRatingPage = page;
+    overallRatingPage = Math.max(1, Number(page) || 1);
 
     root.innerHTML = '<p class="game-rating__loading">Загружаем общий рейтинг…</p>';
 
@@ -2004,8 +2004,11 @@ async function loadOverallRating(page = overallRatingPage) {
         }
 
         const data = await res.json();
-        const rows = data.rating;
-        overallRatingTotalPages = data.total_pages;
+        const rows = Array.isArray(data.rating) ? data.rating : [];
+        overallRatingTotalPages = Math.max(1, Number(data.total_pages) || 1);
+        if (overallRatingPage > overallRatingTotalPages) {
+            overallRatingPage = overallRatingTotalPages;
+        }
 
         renderGameRating(rows, containerId);
 
@@ -5101,6 +5104,18 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('next-page-btn')?.addEventListener('click', () => {
         currentPage++;
         loadGames();
+    });
+
+    document.getElementById('overall-rating-prev-btn')?.addEventListener('click', () => {
+        if (overallRatingPage > 1) {
+            loadOverallRating(overallRatingPage - 1);
+        }
+    });
+
+    document.getElementById('overall-rating-next-btn')?.addEventListener('click', () => {
+        if (overallRatingPage < overallRatingTotalPages) {
+            loadOverallRating(overallRatingPage + 1);
+        }
     });
 
     document.getElementById('finished-games-pages')?.addEventListener('click', (e) => {
