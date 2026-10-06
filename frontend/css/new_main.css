@@ -2796,7 +2796,12 @@ table__empty {
 
 .home-dashboard__main {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 14px;
+  min-width: 0;
+}
+
+.home-dashboard__main > * {
   min-width: 0;
 }
 
