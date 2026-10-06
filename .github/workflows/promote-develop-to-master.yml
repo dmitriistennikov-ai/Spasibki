@@ -51,7 +51,10 @@ jobs:
             git fetch origin
             git checkout master
             git pull origin master
-            docker compose up -d --build
+            docker compose build app
+            docker compose up -d db
+            docker compose run --rm --no-deps app alembic upgrade head
+            docker compose up -d --no-build app
 
             echo "⏳ Ждём, пока приложение поднимется на prod..."
 

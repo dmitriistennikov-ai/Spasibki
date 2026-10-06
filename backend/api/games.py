@@ -57,7 +57,12 @@ def game_snapshot(game: Game, participant_ids: list[int] | None = None) -> dict:
     }
 
 
-def normalize_and_validate_participant_ids(db: Session, participant_ids: list[int] | None) -> list[int]:
+def normalize_and_validate_participant_ids(
+    db: Session,
+    participant_ids: list[int] | None,
+    *,
+    preserved_ids: set[int] | None = None,
+) -> list[int]:
     if participant_ids is None:
         return []
 
@@ -83,10 +88,12 @@ def normalize_and_validate_participant_ids(db: Session, participant_ids: list[in
         .filter(
             Employee.bitrix_id.in_(normalized),
             Employee.is_gamer.is_(True),
+            Employee.bitrix_active.is_(True),
         )
         .all()
     )
     allowed_ids = {row.bitrix_id for row in allowed_rows}
+    allowed_ids.update(preserved_ids or ())
     invalid_ids = [eid for eid in normalized if eid not in allowed_ids]
     if invalid_ids:
         raise HTTPException(
@@ -505,7 +512,13 @@ def update_game(
     participant_ids_raw = data.pop("participant_ids", None)
     participant_ids = None
     if participant_ids_raw is not None:
-        participant_ids = normalize_and_validate_participant_ids(db, participant_ids_raw)
+        effective_end = data.get("game_end", game.game_end)
+        finished = effective_end.date() < datetime.now(timezone.utc).date()
+        participant_ids = normalize_and_validate_participant_ids(
+            db,
+            participant_ids_raw,
+            preserved_ids=set(game.participant_ids) if finished else None,
+        )
 
     before = game_snapshot(game)
 

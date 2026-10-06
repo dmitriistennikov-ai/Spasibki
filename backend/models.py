@@ -44,6 +44,7 @@ class Employee(Base):
     likes = Column(Integer, default=0)
     coins = Column(Integer, nullable=False, default=0)
     is_gamer = Column(Boolean, default=True, nullable=False)
+    bitrix_active = Column(Boolean, default=True, nullable=False)
     is_admin = Column(Boolean, default=False, nullable=False)
     is_superadmin = Column(Boolean, default=False, nullable=False)
     photo_url = Column(String, nullable=True)
@@ -56,6 +57,7 @@ class EmployeeShortResponse(BaseModel):
     lastname: str
     coins: int
     is_gamer: bool
+    bitrix_active: bool
     is_admin: bool
     is_superadmin: bool = False
     photo_url: Optional[str] = None

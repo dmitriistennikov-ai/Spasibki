@@ -3988,6 +3988,7 @@ function renderSettingsEmployees(employees) {
         const fullName = [u.name, u.lastname].filter(Boolean).join(' ') || '—';
         const coins = (u.coins != null) ? Number(u.coins).toLocaleString('ru-RU') : '0';
         const isGamerLabel = u.is_gamer ? 'Да' : 'Нет';
+        const bitrixStatusLabel = u.bitrix_active ? 'Работает' : 'Уволен';
         const isAdminLabel = u.is_admin ? 'Да' : 'Нет';
         const searchIndex = normalizeSettingsEmployeeSearch([
             fullName,
@@ -4010,6 +4011,7 @@ function renderSettingsEmployees(employees) {
                     <span class="settings-employee__fio">${esc(fullName)}</span>
                 </td>
                 <td>${coins}</td>
+                <td>${esc(bitrixStatusLabel)}</td>
                 <td>${esc(isGamerLabel)}</td>
                 <td>${esc(isAdminLabel)}</td>
                 <td class="table-actions__cell">
@@ -4046,6 +4048,7 @@ function renderSettingsEmployees(employees) {
                     <tr>
                         <th>ФИО</th>
                         <th>Баланс</th>
+                        <th>Статус в Б24</th>
                         <th>Принимает участие в играх</th>
                         <th>Расширенные права доступа</th>
                         <th></th>

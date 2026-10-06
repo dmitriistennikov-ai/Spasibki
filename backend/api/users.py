@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, HTTPException, status, Depends
 from sqlalchemy.orm import Session
 
@@ -15,6 +17,7 @@ from backend.services.event_log import (
 )
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 @router.get("/api/users")
 async def get_all_users(
@@ -35,15 +38,19 @@ async def get_all_users(
     query = db.query(Employee)
 
     if only_gamers:
-        query = query.filter(Employee.is_gamer.is_(True))
+        query = query.filter(
+            Employee.is_gamer.is_(True), Employee.bitrix_active.is_(True)
+        )
 
     if game_id is not None:
+        query = query.filter(Employee.bitrix_active.is_(True))
         participant_ids_subq = (
             db.query(GameParticipant.employee_bitrix_id)
             .filter(GameParticipant.game_id == game_id)
         )
         query = query.filter(Employee.bitrix_id.in_(participant_ids_subq))
     elif active_game_only:
+        query = query.filter(Employee.bitrix_active.is_(True))
         active_game = (
             db.query(Game)
             .filter(Game.game_is_active.is_(True))
@@ -71,6 +78,7 @@ async def get_all_users(
             "likes": user.likes,
             "coins": user.coins,
             "is_gamer": user.is_gamer,
+            "bitrix_active": user.bitrix_active,
             "is_admin": user.is_admin,
             "is_superadmin": getattr(user, "is_superadmin", False),
             "photo_url": user.photo_url
@@ -89,12 +97,16 @@ async def update_users(user_id: int, db: Session = Depends(get_db)):
         if not tokens:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Нет сохранённых токенов для этого пользователя")
 
-        users = await get_all_users_from_bitrix(auth_id = tokens.access_token, refresh_id = tokens.refresh_token, domain = tokens.domain)
+        users = await get_all_users_from_bitrix(
+            auth_id=tokens.access_token, domain=tokens.domain
+        )
 
         if not users:
             raise HTTPException(status_code=400, detail="Ошибка при запросе к API Битрикс24 или пустой ответ")
 
-        updated_count = save_or_update_employees(users, db)
+        updated_count = save_or_update_employees(
+            users, db, sync_bitrix_status=True
+        )
 
         return {
             "message": "Список сотрудников обновлён",
@@ -104,7 +116,9 @@ async def update_users(user_id: int, db: Session = Depends(get_db)):
     except HTTPException:
         raise
 
-    except Exception as e:
+    except Exception:
+        db.rollback()
+        logger.exception("Employee sync from Bitrix24 failed")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Внутренняя ошибка при обновлении сотрудников",

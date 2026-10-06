@@ -91,6 +91,17 @@ def process_like_transaction(db: Session, payload: LikeRequest) -> tuple[int, in
     if not like_for:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Получатель не найден")
 
+    if not like_from.bitrix_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Нельзя отправить Спасибку: отправитель уволен в Битрикс24",
+        )
+    if not like_for.bitrix_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Нельзя отправить Спасибку: получатель уволен в Битрикс24",
+        )
+
     try:
         like_for.likes += 1
         like_for.coins += 100

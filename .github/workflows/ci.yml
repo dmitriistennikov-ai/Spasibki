@@ -27,3 +27,6 @@ jobs:
       - name: Syntax check (compile all Python files)
         run: |
           python -m compileall backend
+
+      - name: Test employee synchronization
+        run: python -m unittest discover -s tests -v

@@ -1,37 +1,40 @@
-from backend.bitrix_sdk.python_current_SDK import BitrixCurrent
+import httpx
 
-async def get_all_users(auth_id: str, refresh_id: str, domain: str) -> list[dict]:
-    try:
-        bx = BitrixCurrent(
-            auth_id=auth_id,
-            refresh_id=refresh_id,
-            domain=domain,
-        )
 
-        all_users = []
-        start = 0
+async def get_all_users(auth_id: str, domain: str) -> list[dict]:
+    all_users: list[dict] = []
+    total: int | None = None
+    url = f"https://{domain}/rest/user.get.json"
 
-        while True:
-            users_batch = await bx.call("user.get", {
-                "start": start,
-                "ACTIVE": True,
-                "USER_TYPE": "employee",
-            })
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        while total is None or len(all_users) < total:
+            response = await client.post(
+                url,
+                json={
+                    "auth": auth_id,
+                    "filter": {"USER_TYPE": "employee"},
+                    "start": len(all_users),
+                },
+            )
+            response.raise_for_status()
+            payload = response.json()
 
-            batch_result = users_batch.get("result", [])
+            if not isinstance(payload, dict):
+                raise ValueError("Bitrix user.get returned an invalid response")
+            if payload.get("error"):
+                raise ValueError(f"Bitrix user.get failed: {payload['error']}")
 
-            if not batch_result:
-                break
+            batch = payload.get("result")
+            page_total = payload.get("total")
+            if not isinstance(batch, list) or type(page_total) is not int:
+                raise ValueError("Bitrix user.get returned an incomplete response")
+            if total is None:
+                total = page_total
+            elif total != page_total:
+                raise ValueError("Bitrix user.get total changed during pagination")
+            if (not batch and len(all_users) < total) or len(all_users) + len(batch) > total:
+                raise ValueError("Bitrix user.get did not return all employees")
 
-            all_users.extend(batch_result)
-            start += len(batch_result)
+            all_users.extend(batch)
 
-            if len(batch_result) < 50:
-                break
-
-        return all_users
-
-    except Exception as e:
-        print("Ошибка Bitrix user.get:", e)
-        return []
-
+    return all_users
